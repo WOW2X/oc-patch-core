@@ -893,6 +893,7 @@ void World::LoadConfigSettings(bool reload)
     m_configs[CONFIG_WEATHER] = sConfig.GetBoolDefault("ActivateWeather",true);
 
     m_configs[CONFIG_DISABLE_BREATHING] = sConfig.GetIntDefault("DisableWaterBreath", SEC_CONSOLE);
+    m_configs[CONFIG_DISABLE_FATIGUE] = sConfig.GetIntDefault("DisableFatigue", SEC_CONSOLE);
 
     m_configs[CONFIG_ALWAYS_MAX_SKILL_FOR_LEVEL] = sConfig.GetBoolDefault("AlwaysMaxSkillForLevel", false);
 

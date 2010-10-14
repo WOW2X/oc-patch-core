@@ -849,7 +849,11 @@ int32 Player::getMaxTimer(MirrorTimerType timer)
     switch (timer)
     {
         case FATIGUE_TIMER:
+        {
+            if (!isAlive() || MirrorTimerType(FATIGUE_TIMER) ||GetSession()->GetSecurity() >= sWorld.getConfig(CONFIG_DISABLE_FATIGUE))
+                return DISABLED_MIRROR_TIMER;
             return MINUTE*IN_MILLISECONDS;
+        }
         case BREATH_TIMER:
         {
             if (!isAlive() || HasAuraType(SPELL_AURA_WATER_BREATHING) || GetSession()->GetSecurity() >= sWorld.getConfig(CONFIG_DISABLE_BREATHING))
