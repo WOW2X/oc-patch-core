@@ -35,14 +35,13 @@ class MapInstanced : public Map
 
         // functions overwrite Map versions
         void Update(const uint32&);
-        void MoveAllCreaturesInMoveList();
-        void RemoveAllObjectsInRemoveList();
-        void RelocationNotify();
+        void DelayedUpdate(const uint32 diff);
+        //void RelocationNotify();
         bool RemoveBones(uint64 guid, float x, float y);
         void UnloadAll();
         bool CanEnter(Player* player);
 
-        Map* GetInstance(const WorldObject* obj);
+        Map* CreateInstance(const uint32 mapId, Player * player);
         Map* FindMap(uint32 InstanceId) const { return _FindMap(InstanceId); }
         void DestroyInstance(uint32 InstanceId);
         void DestroyInstance(InstancedMaps::iterator &itr);

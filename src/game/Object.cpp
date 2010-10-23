@@ -81,20 +81,18 @@ Object::~Object()
     if (IsInWorld())
     {
         ///- Do NOT call RemoveFromWorld here, if the object is a player it will crash
-        sLog.outError("Object::~Object (GUID: %u TypeId: %u) deleted but still in world!!", GetGUIDLow(), GetTypeId());
+        sLog.outCrash("Object::~Object (GUID: %u TypeId: %u) deleted but still in world!!", GetGUIDLow(), GetTypeId());
         ASSERT(false);
     }
 
     if (m_objectUpdated)
     {
-        sLog.outError("Object::~Object (GUID: %u TypeId: %u) deleted but still have updated status!!", GetGUIDLow(), GetTypeId());
+        sLog.outCrash("Object::~Object (GUID: %u TypeId: %u) deleted but still have updated status!!", GetGUIDLow(), GetTypeId());
         ASSERT(false);
     }
 
     delete [] m_uint32Values;
     delete [] m_uint32Values_mirror;
-    m_uint32Values = NULL;
-    m_uint32Values_mirror = NULL;
 }
 
 void Object::_InitValues()
@@ -166,6 +164,8 @@ void Object::BuildCreateUpdateBlockForPlayer(UpdateData *data, Player *target) c
                     break;
                 case GAMEOBJECT_TYPE_TRANSPORT:
                     flags |= UPDATEFLAG_TRANSPORT;
+                    break;
+                default:
                     break;
             }
         }
@@ -503,10 +503,10 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
         if (isType(TYPEMASK_GAMEOBJECT) && !((GameObject*)this)->IsTransport())
         {
             if (((GameObject*)this)->ActivateToQuest(target) || target->isGameMaster())
-            {
                 IsActivateToQuest = true;
-                updateMask->SetBit(GAMEOBJECT_DYN_FLAGS);
-            }
+
+            updateMask->SetBit(GAMEOBJECT_DYN_FLAGS);
+
             if (GetUInt32Value(GAMEOBJECT_ARTKIT))
                 updateMask->SetBit(GAMEOBJECT_ARTKIT);
         }
@@ -516,9 +516,8 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
         if (isType(TYPEMASK_GAMEOBJECT) && !((GameObject*)this)->IsTransport())
         {
             if (((GameObject*)this)->ActivateToQuest(target) || target->isGameMaster())
-            {
                 IsActivateToQuest = true;
-            }
+
             updateMask->SetBit(GAMEOBJECT_DYN_FLAGS);
             updateMask->SetBit(GAMEOBJECT_ANIMPROGRESS);
         }
@@ -546,10 +545,10 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
                     *data << uint32(m_floatValues[ index ] < 0 ? 0 : m_floatValues[ index ]);
                 }
                 // there are some float values which may be negative or can't get negative due to other checks
-                else if (index >= UNIT_FIELD_NEGSTAT0   && index <= UNIT_FIELD_NEGSTAT4 ||
-                    index >= UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE  && index <= (UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE + 6) ||
-                    index >= UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE  && index <= (UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE + 6) ||
-                    index >= UNIT_FIELD_POSSTAT0   && index <= UNIT_FIELD_POSSTAT4)
+                else if ((index >= UNIT_FIELD_NEGSTAT0   && index <= UNIT_FIELD_NEGSTAT4) ||
+                    (index >= UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE  && index <= (UNIT_FIELD_RESISTANCEBUFFMODSPOSITIVE + 6)) ||
+                    (index >= UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE  && index <= (UNIT_FIELD_RESISTANCEBUFFMODSNEGATIVE + 6)) ||
+                    (index >= UNIT_FIELD_POSSTAT0   && index <= UNIT_FIELD_POSSTAT4))
                 {
                     *data << uint32(m_floatValues[ index ]);
                 }
@@ -633,7 +632,7 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
     }
     else if (isType(TYPEMASK_GAMEOBJECT))                    // gameobject case
     {
-        for (uint16 index = 0; index < m_valuesCount; index ++)
+        for (uint16 index = 0; index < m_valuesCount; ++index)
         {
             if (updateMask->GetBit(index))
             {
@@ -645,13 +644,12 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
                         switch(((GameObject*)this)->GetGoType())
                         {
                             case GAMEOBJECT_TYPE_CHEST:
-                                *data << uint32(9);         // enable quest object. Represent 9, but 1 for client before 2.3.0
-                                break;
                             case GAMEOBJECT_TYPE_GOOBER:
-                                *data << uint32(1);
+                                *data << uint16(GO_DYNFLAG_LO_ACTIVATE | GO_DYNFLAG_LO_SPARKLE);
+                                *data << uint16(-1);
                                 break;
                             default:
-                                *data << uint32(0);         // unknown. not happen.
+                                *data << uint32(0);         // unknown, not happen.
                                 break;
                         }
                     }
@@ -665,7 +663,7 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
     }
     else                                                    // other objects case (no special index checks)
     {
-        for (uint16 index = 0; index < m_valuesCount; index ++)
+        for (uint16 index = 0; index < m_valuesCount; ++index)
         {
             if (updateMask->GetBit(index))
             {
@@ -678,14 +676,7 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
 
 void Object::ClearUpdateMask(bool remove)
 {
-    if(m_uint32Values)
-    {
-        for (uint16 index = 0; index < m_valuesCount; ++index)
-        {
-            if (m_uint32Values_mirror[index] != m_uint32Values[index])
-                m_uint32Values_mirror[index] = m_uint32Values[index];
-        }
-    }
+    memcpy(m_uint32Values_mirror, m_uint32Values, m_valuesCount*sizeof(uint32));
 
     if (m_objectUpdated)
     {
@@ -701,8 +692,8 @@ void Object::BuildFieldsUpdate(Player *pl, UpdateDataMapType &data_map) const
 
     if (iter == data_map.end())
     {
-        std::pair<UpdateDataMapType::iterator, bool> p = data_map.insert( UpdateDataMapType::value_type(pl, UpdateData()) );
-        assert(p.second);
+        std::pair<UpdateDataMapType::iterator, bool> p = data_map.insert(UpdateDataMapType::value_type(pl, UpdateData()));
+        ASSERT(p.second);
         iter = p.first;
     }
 
@@ -730,25 +721,30 @@ bool Object::LoadValues(const char* data)
 
 void Object::_SetUpdateBits(UpdateMask *updateMask, Player* /*target*/) const
 {
-    for (uint16 index = 0; index < m_valuesCount; index ++)
+    uint32 *value = m_uint32Values;
+    uint32 *mirror = m_uint32Values_mirror;
+
+    for (uint16 index = 0; index < m_valuesCount; ++index, ++value, ++mirror)
     {
-        if (m_uint32Values_mirror[index] != m_uint32Values[index])
+        if (*mirror != *value)
             updateMask->SetBit(index);
     }
 }
 
 void Object::_SetCreateBits(UpdateMask *updateMask, Player* /*target*/) const
 {
-    for (uint16 index = 0; index < m_valuesCount; index++)
+    uint32 *value = m_uint32Values;
+
+    for (uint16 index = 0; index < m_valuesCount; ++index, ++value)
     {
-        if (GetUInt32Value(index) != 0)
+        if (*value)
             updateMask->SetBit(index);
     }
 }
 
 void Object::SetInt32Value(uint16 index, int32 value)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (m_int32Values[ index ] != value)
     {
@@ -767,7 +763,7 @@ void Object::SetInt32Value(uint16 index, int32 value)
 
 void Object::SetUInt32Value(uint16 index, uint32 value)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (m_uint32Values[ index ] != value)
     {
@@ -786,7 +782,7 @@ void Object::SetUInt32Value(uint16 index, uint32 value)
 
 void Object::SetUInt64Value(uint16 index, const uint64 &value)
 {
-    ASSERT(index + 1 < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index + 1 < m_valuesCount || PrintIndexError(index, true));
     if (*((uint64*)&(m_uint32Values[ index ])) != value)
     {
         m_uint32Values[ index ] = *((uint32*)&value);
@@ -805,7 +801,7 @@ void Object::SetUInt64Value(uint16 index, const uint64 &value)
 
 void Object::SetFloatValue(uint16 index, float value)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (m_floatValues[ index ] != value)
     {
@@ -824,7 +820,7 @@ void Object::SetFloatValue(uint16 index, float value)
 
 void Object::SetByteValue(uint16 index, uint8 offset, uint8 value)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (offset > 4)
     {
@@ -850,7 +846,7 @@ void Object::SetByteValue(uint16 index, uint8 offset, uint8 value)
 
 void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (offset > 2)
     {
@@ -858,7 +854,7 @@ void Object::SetUInt16Value(uint16 index, uint8 offset, uint16 value)
         return;
     }
 
-    if (uint8(m_uint32Values[ index ] >> (offset * 16)) != value)
+    if (uint16(m_uint32Values[ index ] >> (offset * 16)) != value)
     {
         m_uint32Values[ index ] &= ~uint32(uint32(0xFFFF) << (offset * 16));
         m_uint32Values[ index ] |= uint32(uint32(value) << (offset * 16));
@@ -896,21 +892,21 @@ void Object::ApplyModUInt32Value(uint16 index, int32 val, bool apply)
     cur += (apply ? val : -val);
     if (cur < 0)
         cur = 0;
-    SetUInt32Value(index,cur);
+    SetUInt32Value(index, cur);
 }
 
 void Object::ApplyModInt32Value(uint16 index, int32 val, bool apply)
 {
     int32 cur = GetInt32Value(index);
     cur += (apply ? val : -val);
-    SetInt32Value(index,cur);
+    SetInt32Value(index, cur);
 }
 
 void Object::ApplyModSignedFloatValue(uint16 index, float  val, bool apply)
 {
     float cur = GetFloatValue(index);
     cur += (apply ? val : -val);
-    SetFloatValue(index,cur);
+    SetFloatValue(index, cur);
 }
 
 void Object::ApplyModPositiveFloatValue(uint16 index, float  val, bool apply)
@@ -919,12 +915,12 @@ void Object::ApplyModPositiveFloatValue(uint16 index, float  val, bool apply)
     cur += (apply ? val : -val);
     if (cur < 0)
         cur = 0;
-    SetFloatValue(index,cur);
+    SetFloatValue(index, cur);
 }
 
 void Object::SetFlag(uint16 index, uint32 newFlag)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
     uint32 oldval = m_uint32Values[ index ];
     uint32 newval = oldval | newFlag;
 
@@ -945,7 +941,7 @@ void Object::SetFlag(uint16 index, uint32 newFlag)
 
 void Object::RemoveFlag(uint16 index, uint32 oldFlag)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
     uint32 oldval = m_uint32Values[ index ];
     uint32 newval = oldval & ~oldFlag;
 
@@ -966,7 +962,7 @@ void Object::RemoveFlag(uint16 index, uint32 oldFlag)
 
 void Object::SetByteFlag(uint16 index, uint8 offset, uint8 newFlag)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (offset > 4)
     {
@@ -991,7 +987,7 @@ void Object::SetByteFlag(uint16 index, uint8 offset, uint8 newFlag)
 
 void Object::RemoveByteFlag(uint16 index, uint8 offset, uint8 oldFlag)
 {
-    ASSERT(index < m_valuesCount || PrintIndexError(index , true));
+    ASSERT(index < m_valuesCount || PrintIndexError(index, true));
 
     if (offset > 4)
     {
@@ -1024,8 +1020,8 @@ bool Object::PrintIndexError(uint32 index, bool set) const
 
 WorldObject::WorldObject()
     : m_mapId(0), m_InstanceId(0),
-    m_positionX(0.0f), m_positionY(0.0f), m_positionZ(0.0f), m_orientation(0.0f)
-    , m_map(NULL), m_zoneScript(NULL)
+    m_positionX(0.0f), m_positionY(0.0f), m_positionZ(0.0f), m_orientation(0.0f), m_currMap(NULL)
+    , m_zoneScript(NULL)
     , m_isActive(false), IsTempWorldObject(false)
     , m_name("")
 {
@@ -1078,21 +1074,19 @@ void WorldObject::CleanupsBeforeDelete()
 {
 }
 
-void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh, uint32 mapid)
+void WorldObject::_Create(uint32 guidlow, HighGuid guidhigh)
 {
     Object::_Create(guidlow, 0, guidhigh);
-
-    m_mapId = mapid;
 }
 
 uint32 WorldObject::GetZoneId() const
 {
-    return GetBaseMap()->GetZoneId(m_positionX,m_positionY,m_positionZ);
+    return GetBaseMap()->GetZoneId(m_positionX, m_positionY, m_positionZ);
 }
 
 uint32 WorldObject::GetAreaId() const
 {
-    return GetBaseMap()->GetAreaId(m_positionX,m_positionY,m_positionZ);
+    return GetBaseMap()->GetAreaId(m_positionX, m_positionY, m_positionZ);
 }
 
 InstanceData* WorldObject::GetInstanceData()
@@ -1187,7 +1181,7 @@ bool WorldObject::IsWithinLOSInMap(const WorldObject* obj) const
     return(IsWithinLOS(ox, oy, oz));
 }
 
-bool WorldObject::IsWithinLOS(const float ox, const float oy, const float oz) const
+bool WorldObject::IsWithinLOS(float ox, float oy, float oz) const
 {
     float x,y,z;
     GetPosition(x,y,z);
@@ -1340,8 +1334,8 @@ void WorldObject::GetRandomPoint(float x, float y, float z, float distance, floa
     }
 
     // angle to face `obj` to `this`
-    float angle = GetMap()->rand_norm()*2*M_PI;
-    float new_dist = GetMap()->rand_norm()*distance;
+    float angle = rand_norm()*2*M_PI;
+    float new_dist = rand_norm()*distance;
 
     rand_x = x + new_dist * cos(angle);
     rand_y = y + new_dist * sin(angle);
@@ -1584,23 +1578,31 @@ void WorldObject::SendMessageToSetInRange(WorldPacket *data, float dist, bool /*
 void WorldObject::SendObjectDeSpawnAnim(uint64 guid)
 {
     WorldPacket data(SMSG_GAMEOBJECT_DESPAWN_ANIM, 8);
-    data << guid;
+    data << uint64(guid);
     SendMessageToSet(&data, true);
 }
 
-Map* WorldObject::_getMap()
+void WorldObject::SendGameObjectCustomAnim(uint64 guid)
 {
-    return m_map = MapManager::Instance().GetMap(GetMapId(), this);
+    WorldPacket data(SMSG_GAMEOBJECT_CUSTOM_ANIM, 8+4);
+    data << uint64(guid);
+    data << uint32(0);                                      // not known what this is
+    SendMessageToSet(&data, true);
 }
 
-Map* WorldObject::_findMap()
+void WorldObject::SetMap(Map * map)
 {
-    return m_map = MapManager::Instance().FindMap(GetMapId(), GetInstanceId());
+    ASSERT(map);
+    m_currMap = map;
+    //lets save current map's Id/instanceId
+    m_mapId = map->GetId();
+    m_InstanceId = map->GetInstanceId();
 }
 
 Map const* WorldObject::GetBaseMap() const
 {
-    return MapManager::Instance().CreateBaseMap(GetMapId());
+    ASSERT(m_currMap);
+    return m_currMap->GetParent();
 }
 
 void WorldObject::AddObjectToRemoveList()
@@ -1842,12 +1844,10 @@ void WorldObject::GetNearPoint2D(float &x, float &y, float distance2d, float abs
     Oregon::NormalizeMapCoord(y);
 }
 
-void WorldObject::GetNearPoint(WorldObject const* searcher, float &x, float &y, float &z, float searcher_size, float distance2d, float absAngle) const
+void WorldObject::GetNearPoint(WorldObject const* /*searcher*/, float &x, float &y, float &z, float searcher_size, float distance2d, float absAngle) const
 {
     GetNearPoint2D(x,y,distance2d+searcher_size,absAngle);
-
     z = GetPositionZ();
-
     UpdateGroundPositionZ(x,y,z);
 }
 
@@ -1909,7 +1909,7 @@ struct WorldObjectChangeAccumulator
             if (IS_PLAYER_GUID(guid))
             {
                 //Caster may be NULL if DynObj is in removelist
-                if(Player *caster = ObjectAccessor::FindPlayer(guid))
+                if (Player *caster = ObjectAccessor::FindPlayer(guid))
                     if (caster->GetUInt64Value(PLAYER_FARSIGHT) == iter->getSource()->GetGUID())
                         BuildPacket(caster);
             }

@@ -297,7 +297,7 @@ Player::Player (WorldSession *session): Unit()
 
     // randomize first save time in range [CONFIG_INTERVAL_SAVE] around [CONFIG_INTERVAL_SAVE]
     // this must help in case next save after mass player load after server startup
-    m_nextSave = GetMap()->urand(m_nextSave/2,m_nextSave*3/2);
+    m_nextSave = urand(m_nextSave/2,m_nextSave*3/2);
 
     clearResurrectRequestData();
 
@@ -525,7 +525,7 @@ bool Player::Create(uint32 guidlow, const std::string& name, uint8 race, uint8 c
     for (int i = 0; i < PLAYER_SLOTS_COUNT; i++)
         m_items[i] = NULL;
 
-    SetMapId(info->mapId);
+    SetLocationMapId(info->mapId);
     Relocate(info->positionX,info->positionY,info->positionZ, info->orientation);
 
     ChrClassesEntry const* cEntry = sChrClassesStore.LookupEntry(class_);
@@ -534,6 +534,8 @@ bool Player::Create(uint32 guidlow, const std::string& name, uint8 race, uint8 c
         sLog.outError("Class %u not found in DBC (Wrong DBC files?)",class_);
         return false;
     }
+
+    SetMap(MapManager::Instance().CreateMap(info->mapId, this));
 
     uint8 powertype = cEntry->powerType;
 
@@ -905,7 +907,7 @@ void Player::HandleDrowning(uint32 time_diff)
                 m_MirrorTimer[BREATH_TIMER]+= 1*IN_MILLISECONDS;
                 // Calculate and deal damage
                 // TODO: Check this formula
-                uint32 damage = GetMaxHealth() / 5 + GetMap()->urand(0, getLevel()-1);
+                uint32 damage = GetMaxHealth() / 5 + urand(0, getLevel()-1);
                 EnvironmentalDamage(DAMAGE_DROWNING, damage);
             }
             else if (!(m_MirrorTimerFlagsLast & UNDERWATER_INWATER))      // Update time in client if need
@@ -941,7 +943,7 @@ void Player::HandleDrowning(uint32 time_diff)
                 m_MirrorTimer[FATIGUE_TIMER]+= 1*IN_MILLISECONDS;
                 if (isAlive())                                            // Calculate and deal damage
                 {
-                    uint32 damage = GetMaxHealth() / 5 + GetMap()->urand(0, getLevel()-1);
+                    uint32 damage = GetMaxHealth() / 5 + urand(0, getLevel()-1);
                     EnvironmentalDamage(DAMAGE_EXHAUSTED, damage);
                 }
                 else if (HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_GHOST))       // Teleport ghost to graveyard
@@ -974,7 +976,7 @@ void Player::HandleDrowning(uint32 time_diff)
                 m_MirrorTimer[FIRE_TIMER]+= 1*IN_MILLISECONDS;
                 // Calculate and deal damage
                 // TODO: Check this formula
-                uint32 damage = GetMap()->urand(600, 700);
+                uint32 damage = urand(600, 700);
                 if (m_MirrorTimerFlags&UNDERWATER_INLAVA)
                     EnvironmentalDamage(DAMAGE_LAVA, damage);
                 // need to skip Slime damage in Undercity,
@@ -4851,7 +4853,7 @@ bool Player::UpdateSkill(uint32 skill_id, uint32 step)
     if ((!max) || (!value) || (value >= max))
         return false;
 
-    if (value*512 < max*GetMap()->urand(0,512))
+    if (value*512 < max*urand(0,512))
     {
         uint32 new_value = value+step;
         if (new_value > max)
@@ -4973,7 +4975,7 @@ bool Player::UpdateSkillPro(uint16 SkillId, int32 Chance, uint32 step)
     if (!MaxValue || !SkillValue || SkillValue >= MaxValue)
         return false;
 
-    int32 Roll = GetMap()->irand(1,1000);
+    int32 Roll = irand(1,1000);
 
     if (Roll <= Chance)
     {
@@ -6315,7 +6317,7 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor, bool pvpt
         if (groupsize > 1)
             honor /= groupsize;
 
-        honor *= (((float)GetMap()->urand(8,12))/10);                 // approx honor: 80% - 120% of real honor
+        honor *= (((float)urand(8,12))/10);                 // approx honor: 80% - 120% of real honor
     }
 
     // honor - for show honor points in log
@@ -7706,7 +7708,7 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
                     loot->FillLoot(1, LootTemplates_Creature, this);
             // It may need a better formula
             // Now it works like this: lvl10: ~6copper, lvl70: ~9silver
-            bones->loot.gold = (uint32)(GetMap()->urand(50, 150) * 0.016f * pow(((float)pLevel)/5.76f, 2.5f) * sWorld.getRate(RATE_DROP_MONEY));
+            bones->loot.gold = (uint32)(urand(50, 150) * 0.016f * pow(((float)pLevel)/5.76f, 2.5f) * sWorld.getRate(RATE_DROP_MONEY));
         }
 
         if (bones->lootRecipient != this)
@@ -7742,8 +7744,8 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
                     loot->FillLoot(lootid, LootTemplates_Pickpocketing, this);
 
                 // Generate extra money for pick pocket loot
-                const uint32 a = GetMap()->urand(0, creature->getLevel()/2);
-                const uint32 b = GetMap()->urand(0, getLevel()/2);
+                const uint32 a = urand(0, creature->getLevel()/2);
+                const uint32 b = urand(0, getLevel()/2);
                 loot->gold = uint32(10 * (a + b) * sWorld.getRate(RATE_DROP_MONEY));
             }
         }
@@ -12731,7 +12733,11 @@ void Player::PrepareQuestMenu(uint64 guid)
     }
     else
     {
-        GameObject *pGameObject = GetMap()->GetGameObject(guid);
+        //we should obtain map pointer from GetMap() in 99% of cases. Special case
+        //only for quests which cast teleport spells on player
+        Map * _map = IsInWorld() ? GetMap() : MapManager::Instance().FindMap(GetMapId(), GetInstanceId());
+        ASSERT(_map);
+        GameObject *pGameObject = _map->GetGameObject(guid);
         if (pGameObject)
         {
             pObject = (Object*)pGameObject;
@@ -14574,9 +14580,9 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
     // init saved position, and fix it later if problematic
     uint32 transGUID = fields[31].GetUInt32();
     Relocate(fields[13].GetFloat(),fields[14].GetFloat(),fields[15].GetFloat(),fields[17].GetFloat());
-    SetMapId(fields[16].GetUInt32());
+    SetLocationMapId(fields[16].GetUInt32());
     SetFallInformation(0, fields[15].GetFloat());
-    SetInstanceId(fields[41].GetFloat());
+    SetLocationInstanceId(fields[41].GetFloat());
     SetDifficulty(fields[39].GetUInt32());                  // may be changed in _LoadGroup
 
     _LoadGroup(holder->GetResult(PLAYER_LOGIN_QUERY_LOADGROUP));
@@ -14647,7 +14653,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
             // Bg was not found - go to Entry Point
             else
             {
-                SetMapId(GetBattleGroundEntryPointMap());
+                SetLocationMapId(GetBattleGroundEntryPointMap());
                 Relocate(GetBattleGroundEntryPointX(),GetBattleGroundEntryPointY(),GetBattleGroundEntryPointZ(),GetBattleGroundEntryPointO());
                 //RemoveArenaAuras(true);
             }
@@ -14684,7 +14690,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
             {
                 m_transport = *iter;
                 m_transport->AddPassenger(this);
-                SetMapId(m_transport->GetMapId());
+                SetLocationMapId(m_transport->GetMapId());
                 break;
             }
         }
@@ -14706,18 +14712,18 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
     // This fixes the crash. But it is not needed for a new db
     if (InstanceSave *pSave = GetInstanceSave(GetMapId()))
         if (pSave->GetInstanceId() != GetInstanceId())
-            SetInstanceId(pSave->GetInstanceId());
+            SetLocationInstanceId(pSave->GetInstanceId());
 
     // NOW player must have valid map
     // load the player's map here if it's not already loaded
-    Map *map = GetMap();
+    Map *map = MapManager::Instance().CreateMap(GetMapId(), this);
 
     if (!map)
     {
         AreaTrigger const* at = objmgr.GetGoBackTrigger(GetMapId());
         if (at)
         {
-            SetMapId(at->target_mapId);
+            SetLocationMapId(at->target_mapId);
             Relocate(at->target_X, at->target_Y, at->target_Z, GetOrientation());
             sLog.outError("Player (guidlow %d) is teleported to gobacktrigger (Map: %u X: %f Y: %f Z: %f O: %f).",guid,GetMapId(),GetPositionX(),GetPositionY(),GetPositionZ(),GetOrientation());
         }
@@ -14727,7 +14733,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
             sLog.outError("Player (guidlow %d) is teleported to home (Map: %u X: %f Y: %f Z: %f O: %f).",guid,GetMapId(),GetPositionX(),GetPositionY(),GetPositionZ(),GetOrientation());
         }
 
-        map = GetMap();
+        map = MapManager::Instance().CreateMap(GetMapId(), this);
         if (!map)
         {
             sLog.outError("Player (guidlow %d) have invalid coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",guid,GetPositionX(),GetPositionY(),GetPositionZ(),GetOrientation());
@@ -14735,9 +14741,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
         }
     }
 
-    // since the player may not be bound to the map yet, make sure subsequent
-    // getmap calls won't create new maps
-    SetInstanceId(map->GetInstanceId());
+    SetMap(map);
 
     // if the player is in an instance and it has been reset in the meantime teleport him to the entrance
     if (GetInstanceId() && !sInstanceSaveManager.GetInstanceSave(GetInstanceId()))
@@ -14929,15 +14933,19 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
         {
             sLog.outError("Character %u have wrong data in taxi destination list, teleport to homebind.",GetGUIDLow());
             RelocateToHomebind();
-            SaveRecallPosition();                           // save as recall also to prevent recall and fall from sky
         }
         else                                                // have start node, to it
         {
             sLog.outError("Character %u have too short taxi destination list, teleport to original node.",GetGUIDLow());
-            SetMapId(nodeEntry->map_id);
+            SetLocationMapId(nodeEntry->map_id);
             Relocate(nodeEntry->x, nodeEntry->y, nodeEntry->z,0.0f);
-            SaveRecallPosition();                           // save as recall also to prevent recall and fall from sky
         }
+
+        //we can be relocated from taxi and still have an outdated Map pointer!
+        //so we need to get a new Map pointer!
+        SetMap(MapManager::Instance().CreateMap(GetMapId(), this));
+        SaveRecallPosition();                           // save as recall also to prevent recall and fall from sky
+
         CleanupAfterTaxiFlight();
     }
     else if (uint32 node_id = m_taxi.GetTaxiSource())
@@ -19949,7 +19957,7 @@ Player* Player::GetNextRandomRaidMember(float radius)
     if (nearMembers.empty())
         return NULL;
 
-    uint32 randTarget = GetMap()->urand(0,nearMembers.size()-1);
+    uint32 randTarget = urand(0,nearMembers.size()-1);
     return nearMembers[randTarget];
 }
 

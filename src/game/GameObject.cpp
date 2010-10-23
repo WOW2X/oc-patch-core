@@ -55,7 +55,6 @@ GameObject::GameObject() : WorldObject()
     m_spawnedByDefault = true;
     m_usetimes = 0;
     m_spellId = 0;
-    m_charges = 5;
     m_cooldownTime = 0;
     m_goInfo = NULL;
     m_goData = NULL;
@@ -65,11 +64,13 @@ GameObject::GameObject() : WorldObject()
 
 GameObject::~GameObject()
 {
-    CleanupsBeforeDelete();
 }
 
 void GameObject::CleanupsBeforeDelete()
 {
+    if (IsInWorld())
+        RemoveFromWorld();
+
     if (m_uint32Values)                                      // field array can be not exist if GameOBject not loaded
     {
         // Possible crash at access to deleted GO in Unit::m_gameobj
@@ -114,6 +115,15 @@ void GameObject::RemoveFromWorld()
         if (m_zoneScript)
             m_zoneScript->OnGameObjectCreate(this, false);
 
+        // Possible crash at access to deleted GO in Unit::m_gameobj
+        if (uint64 owner_guid = GetOwnerGUID())
+        {
+            if (Unit * owner = GetOwner())
+                owner->RemoveGameObject(this,false);
+            else
+                sLog.outError("Delete GameObject (GUID: %u Entry: %u) that have references in not found creature %u GO list. Crash possible later.",GetGUIDLow(),GetGOInfo()->id,GUID_LOPART(owner_guid));
+        }
+
         WorldObject::RemoveFromWorld();
         ObjectAccessor::Instance().RemoveObject(this);
     }
@@ -122,8 +132,7 @@ void GameObject::RemoveFromWorld()
 bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, float x, float y, float z, float ang, float rotation0, float rotation1, float rotation2, float rotation3, uint32 animprogress, GOState go_state, uint32 artKit)
 {
     Relocate(x,y,z,ang);
-    SetMapId(map->GetId());
-    SetInstanceId(map->GetInstanceId());
+    SetMap(map);
 
     if (!IsPositionValid())
     {
@@ -174,10 +183,6 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, float x, float
 
     SetUInt32Value(GAMEOBJECT_ARTKIT, artKit);
 
-    // Spell charges for GAMEOBJECT_TYPE_SPELLCASTER (22)
-    if (goinfo->type == GAMEOBJECT_TYPE_SPELLCASTER)
-        m_charges = goinfo->spellcaster.charges;
-
     SetZoneScript();
 
     return true;
@@ -224,10 +229,7 @@ void GameObject::Update(uint32 diff)
                             udata.BuildPacket(&packet);
                             caster->ToPlayer()->GetSession()->SendPacket(&packet);
 
-                            WorldPacket data(SMSG_GAMEOBJECT_CUSTOM_ANIM,8+4);
-                            data << GetGUID();
-                            data << (uint32)(0);
-                            caster->ToPlayer()->SendMessageToSet(&data,true);
+                            SendGameObjectCustomAnim(GetGUID());
                         }
 
                         m_lootState = GO_READY;                 // can be successfully open with some chance
@@ -290,103 +292,94 @@ void GameObject::Update(uint32 diff)
                 }
             }
 
-            // traps can have time and can not have
-            GameObjectInfo const* goInfo = GetGOInfo();
-            if (goInfo->type == GAMEOBJECT_TYPE_TRAP)
+            if (isSpawned())
             {
-                // traps
-                Unit* owner = GetOwner();
-                Unit* ok = NULL;                            // pointer to appropriate target if found any
-
-                if (m_cooldownTime >= time(NULL))
-                    return;
-
-                bool IsBattleGroundTrap = false;
-                //FIXME: this is activation radius (in different casting radius that must be selected from spell data)
-                //TODO: move activated state code (cast itself) to GO_ACTIVATED, in this place only check activating and set state
-                float radius = (float)(goInfo->trap.radius)/2; // TODO rename radius to diameter (goInfo->trap.radius) should be (goInfo->trap.diameter)
-                if (!radius)
+                // traps can have time and can not have
+                GameObjectInfo const* goInfo = GetGOInfo();
+                if (goInfo->type == GAMEOBJECT_TYPE_TRAP)
                 {
-                    if (goInfo->trap.cooldown != 3)            // cast in other case (at some triggering/linked go/etc explicit call)
-                    {
-                        // try to read radius from trap spell
-                        if (const SpellEntry *spellEntry = sSpellStore.LookupEntry(goInfo->trap.spellId))
-                            radius = GetSpellRadius(spellEntry,0,false);
-                        //    radius = GetSpellRadius(sSpellRadiusStore.LookupEntry(spellEntry->EffectRadiusIndex[0]));
+                    if (m_cooldownTime >= time(NULL))
+                        return;
 
-                        if (!radius)
-                            break;
+                    // traps
+                    Unit* owner = GetOwner();
+                    Unit* ok = NULL;                            // pointer to appropriate target if found any
+
+                    bool IsBattleGroundTrap = false;
+                    //FIXME: this is activation radius (in different casting radius that must be selected from spell data)
+                    //TODO: move activated state code (cast itself) to GO_ACTIVATED, in this place only check activating and set state
+                    float radius = (float)(goInfo->trap.radius)/2; // TODO rename radius to diameter (goInfo->trap.radius) should be (goInfo->trap.diameter)
+                    if (!radius)
+                    {
+                        if (goInfo->trap.cooldown != 3)            // cast in other case (at some triggering/linked go/etc explicit call)
+                        {
+                            // try to read radius from trap spell
+                            if (const SpellEntry *spellEntry = sSpellStore.LookupEntry(goInfo->trap.spellId))
+                                radius = GetSpellRadius(spellEntry,0,false);
+                            //    radius = GetSpellRadius(sSpellRadiusStore.LookupEntry(spellEntry->EffectRadiusIndex[0]));
+
+                            if (!radius)
+                                break;
+                        }
+                        else
+                        {
+                            if (m_respawnTime > 0)
+                                break;
+
+                            radius = goInfo->trap.cooldown;       // battlegrounds gameobjects has data2 == 0 && data5 == 3
+                            IsBattleGroundTrap = true;
+                        }
                     }
-                    else
-                    {
-                        if (m_respawnTime > 0)
-                            break;
 
-                        radius = goInfo->trap.cooldown;       // battlegrounds gameobjects has data2 == 0 && data5 == 3
-                        IsBattleGroundTrap = true;
+                    // Note: this hack with search required until GO casting not implemented
+                    // search unfriendly creature
+                    if (owner)                    // hunter trap
+                    {
+                        Oregon::AnyUnfriendlyNoTotemUnitInObjectRangeCheck checker(this, owner, radius);
+                        Oregon::UnitSearcher<Oregon::AnyUnfriendlyNoTotemUnitInObjectRangeCheck> searcher(ok, checker);
+                        VisitNearbyGridObject(radius, searcher);
+                        if (!ok) VisitNearbyWorldObject(radius, searcher);
+                    }
+                    else                                        // environmental trap
+                    {
+                        // environmental damage spells already have around enemies targeting but this not help in case not existed GO casting support
+                        // affect only players
+                        Player* player = NULL;
+                        Oregon::AnyPlayerInObjectRangeCheck checker(this, radius);
+                        Oregon::PlayerSearcher<Oregon::AnyPlayerInObjectRangeCheck> searcher(player, checker);
+                        VisitNearbyWorldObject(radius, searcher);
+                        ok = player;
+                    }
+
+                    if (ok)
+                    {
+                        // some traps do not have spell but should be triggered
+                        if (goInfo->trap.spellId)
+                            CastSpell(ok, goInfo->trap.spellId);
+
+                        m_cooldownTime = time(NULL) + 4;        // 4 seconds
+
+                        if (owner)  // || goInfo->trap.charges == 1)
+                            SetLootState(GO_JUST_DEACTIVATED);
+
+                        if (IsBattleGroundTrap && ok->GetTypeId() == TYPEID_PLAYER)
+                        {
+                            //BattleGround gameobjects case
+                            if (ok->ToPlayer()->InBattleGround())
+                                if (BattleGround *bg = ok->ToPlayer()->GetBattleGround())
+                                    bg->HandleTriggerBuff(GetGUID());
+                        }
                     }
                 }
-
-                bool NeedDespawn = (goInfo->trap.charges != 0);
-
-                CellPair p(Oregon::ComputeCellPair(GetPositionX(),GetPositionY()));
-                Cell cell(p);
-                cell.data.Part.reserved = ALL_DISTRICT;
-
-                // Note: this hack with search required until GO casting not implemented
-                // search unfriendly creature
-                if (owner && NeedDespawn)                    // hunter trap
+                else if (uint32 max_charges = goInfo->GetCharges())
                 {
-                    Oregon::AnyUnfriendlyNoTotemUnitInObjectRangeCheck u_check(this, owner, radius);
-                    Oregon::UnitSearcher<Oregon::AnyUnfriendlyNoTotemUnitInObjectRangeCheck> checker(ok, u_check);
-
-                    TypeContainerVisitor<Oregon::UnitSearcher<Oregon::AnyUnfriendlyNoTotemUnitInObjectRangeCheck>, GridTypeMapContainer > grid_object_checker(checker);
-                    cell.Visit(p, grid_object_checker, *GetMap(), *this, radius);
-
-                    // or unfriendly player/pet
-                    if (!ok)
+                    if (m_usetimes >= max_charges)
                     {
-                        TypeContainerVisitor<Oregon::UnitSearcher<Oregon::AnyUnfriendlyNoTotemUnitInObjectRangeCheck>, WorldTypeMapContainer > world_object_checker(checker);
-                        cell.Visit(p, world_object_checker, *GetMap(), *this, radius);
-                    }
-                }
-                else                                        // environmental trap
-                {
-                    // environmental damage spells already have around enemies targeting but this not help in case not existed GO casting support
-
-                    // affect only players
-                    Player* p_ok = NULL;
-                    Oregon::AnyPlayerInObjectRangeCheck p_check(this, radius);
-                    Oregon::PlayerSearcher<Oregon::AnyPlayerInObjectRangeCheck>  checker(p_ok, p_check);
-
-                    TypeContainerVisitor<Oregon::PlayerSearcher<Oregon::AnyPlayerInObjectRangeCheck>, WorldTypeMapContainer > world_object_checker(checker);
-                    cell.Visit(p, world_object_checker, *GetMap(), *this, radius);
-                    ok = p_ok;
-                }
-
-                if (ok)
-                {
-                    //Unit *caster =  owner ? owner : ok;
-
-                    //caster->CastSpell(ok, goInfo->trap.spellId, true);
-                    CastSpell(ok, goInfo->trap.spellId);
-                    m_cooldownTime = time(NULL) + 4;        // 4 seconds
-
-                    if (NeedDespawn)
-                        SetLootState(GO_JUST_DEACTIVATED);  // can be despawned or destroyed
-
-                    if (IsBattleGroundTrap && ok->GetTypeId() == TYPEID_PLAYER)
-                    {
-                        //BattleGround gameobjects case
-                        if (ok->ToPlayer()->InBattleGround())
-                            if (BattleGround *bg = ok->ToPlayer()->GetBattleGround())
-                                bg->HandleTriggerBuff(GetGUID());
+                        m_usetimes = 0;
+                        SetLootState(GO_JUST_DEACTIVATED);      // can be despawned or destroyed
                     }
                 }
             }
-
-            if (m_charges && m_usetimes >= m_charges)
-                SetLootState(GO_JUST_DEACTIVATED);          // can be despawned or destroyed
 
             break;
         }
@@ -445,10 +438,11 @@ void GameObject::Update(uint32 diff)
             if (GetOwnerGUID())
             {
                 if (Unit* owner = GetOwner())
+                {
                     owner->RemoveGameObject(this, false);
-
-                m_respawnTime = 0;
-                Delete();
+                    SetRespawnTime(0);
+                    Delete();
+                }
                 return;
             }
 
@@ -1128,7 +1122,7 @@ void GameObject::Use(Unit* user)
 
                     int32 skill = player->GetSkillValue(SKILL_FISHING);
                     int32 chance = skill - zone_skill + 5;
-                    int32 roll = GetMap()->irand(1,100);
+                    int32 roll = irand(1,100);
 
                     DEBUG_LOG("Fishing check (skill: %i zone min skill: %i chance %i roll: %i",skill,zone_skill,chance,roll);
 

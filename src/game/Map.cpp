@@ -128,24 +128,22 @@ void Map::LoadMap(int gx,int gy, bool reload)
         if (GridMaps[gx][gy])
             return;
 
-        Map* baseMap = const_cast<Map*>(MapManager::Instance().CreateBaseMap(i_id));
-
         // load grid map for base map
-        if (!baseMap->GridMaps[gx][gy])
-            baseMap->EnsureGridCreated(GridPair(63-gx,63-gy));
+        if (!m_parentMap->GridMaps[gx][gy])
+            m_parentMap->EnsureGridCreated(GridPair(63-gx,63-gy));
 
-        ((MapInstanced*)(baseMap))->AddGridMapReference(GridPair(gx,gy));
-        GridMaps[gx][gy] = baseMap->GridMaps[gx][gy];
+        ((MapInstanced*)(m_parentMap))->AddGridMapReference(GridPair(gx,gy));
+        GridMaps[gx][gy] = m_parentMap->GridMaps[gx][gy];
         return;
     }
 
-    if(GridMaps[gx][gy] && !reload)
+    if (GridMaps[gx][gy] && !reload)
         return;
 
     //map already load, delete it before reloading (Is it necessary? Do we really need the ability the reload maps during runtime?)
     if (GridMaps[gx][gy])
     {
-        sLog.outDetail("Unloading already loaded map %u before reloading.",GetId());
+        sLog.outDetail("Unloading previously loaded map %u before reloading.",GetId());
         delete (GridMaps[gx][gy]);
         GridMaps[gx][gy]=NULL;
     }
@@ -188,13 +186,13 @@ void Map::DeleteStateMachine()
     delete si_GridStates[GRID_STATE_REMOVAL];
 }
 
-Map::Map(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode)
-   : i_mapEntry (sMapStore.LookupEntry(id)), i_spawnMode(SpawnMode),
-   i_id(id), i_InstanceId(InstanceId), m_unloadTimer(0), i_gridExpiry(expiry),
-   m_VisibleDistance(DEFAULT_VISIBILITY_DISTANCE),
-   m_activeNonPlayersIter(m_activeNonPlayers.end())
-   , i_lock(true)
+Map::Map(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode, Map* _parent):
+i_mapEntry (sMapStore.LookupEntry(id)), i_spawnMode(SpawnMode), i_InstanceId(InstanceId),
+i_id(id), m_unloadTimer(0), m_VisibleDistance(DEFAULT_VISIBILITY_DISTANCE),
+m_activeNonPlayersIter(m_activeNonPlayers.end()), i_gridExpiry(expiry), i_lock(true)
 {
+    m_parentMap = (_parent ? _parent : this);
+
     m_notifyTimer.SetInterval(IN_MILLISECONDS/2);
 
     for (unsigned int idx=0; idx < MAX_NUMBER_OF_GRIDS; ++idx)
@@ -364,6 +362,13 @@ void Map::DeleteFromWorld(T* obj)
     delete obj;
 }
 
+template<>
+void Map::DeleteFromWorld(Player* pl)
+{
+    ObjectAccessor::Instance().RemoveObject(pl);
+    delete pl;
+}
+
 template<class T>
 void Map::AddNotifier(T*)
 {
@@ -476,7 +481,7 @@ bool Map::Add(Player *player)
 {
     player->GetMapRef().link(this, player);
 
-    player->SetInstanceId(GetInstanceId());
+    player->SetMap(this);
 
     // update player state for other player and visa-versa
     CellPair p = Oregon::ComputeCellPair(player->GetPositionX(), player->GetPositionY());
@@ -498,14 +503,14 @@ void
 Map::Add(T *obj)
 {
     CellPair p = Oregon::ComputeCellPair(obj->GetPositionX(), obj->GetPositionY());
-
     if (p.x_coord >= TOTAL_NUMBER_OF_CELLS_PER_MAP || p.y_coord >= TOTAL_NUMBER_OF_CELLS_PER_MAP)
     {
-        sLog.outError("Map::Add: Object " UI64FMTD " have invalid coordinates X:%f Y:%f grid cell [%u:%u]", obj->GetGUID(), obj->GetPositionX(), obj->GetPositionY(), p.x_coord, p.y_coord);
+        sLog.outError("Map::Add: Object " UI64FMTD " has invalid coordinates X:%f Y:%f grid cell [%u:%u]", obj->GetGUID(), obj->GetPositionX(), obj->GetPositionY(), p.x_coord, p.y_coord);
         return;
     }
 
     Cell cell(p);
+    obj->SetMap(this);
     if (obj->isActiveObject())
         EnsureGridLoadedAtEnter(cell);
     else
@@ -715,6 +720,13 @@ void Map::Update(const uint32 &t_diff)
             plr->Update(t_diff);
     }
 
+    m_notifyTimer.Update(t_diff);
+    if (m_notifyTimer.Passed())
+    {
+        m_notifyTimer.Reset();
+        RelocationNotify();
+    }
+
     /// update active cells around players and active objects
     resetMarkedCells();
 
@@ -844,28 +856,6 @@ void Map::Update(const uint32 &t_diff)
     }
 
     MoveAllCreaturesInMoveList();
-    RemoveAllObjectsInRemoveList();
-
-    m_notifyTimer.Update(t_diff);
-    if(m_notifyTimer.Passed())
-    {
-        m_notifyTimer.Reset();
-        RelocationNotify();
-    }
-
-    // Don't unload grids if it's battleground, since we may have manually added GOs,creatures, those doesn't load from DB at grid re-load !
-    // This isn't really bother us, since as soon as we have instanced BG-s, the whole map unloads as the BG gets ended
-    if (IsBattleGroundOrArena())
-        return;
-
-    for (GridRefManager<NGridType>::iterator i = GridRefManager<NGridType>::begin(); i != GridRefManager<NGridType>::end();)
-    {
-        NGridType *grid = i->getSource();
-        GridInfo *info = i->getSource()->getGridInfoRef();
-        ++i;                                                // The update might delete the map and we need the next map before the iterator gets invalid
-        ASSERT(grid->GetGridState() >= 0 && grid->GetGridState() < MAX_GRID_STATE);
-        si_GridStates[grid->GetGridState()]->Update(*this, *grid, *info, grid->getX(), grid->getY(), t_diff);
-    }
 }
 
 void Map::Remove(Player *player, bool remove)
@@ -2165,6 +2155,25 @@ inline void Map::setNGrid(NGridType *grid, uint32 x, uint32 y)
     i_grids[x][y] = grid;
 }
 
+void Map::DelayedUpdate(const uint32 t_diff)
+{
+    RemoveAllObjectsInRemoveList();
+
+    // Don't unload grids if it's battleground, since we may have manually added GOs,creatures, those doesn't load from DB at grid re-load !
+    // This isn't really bother us, since as soon as we have instanced BG-s, the whole map unloads as the BG gets ended
+    if (!IsBattleGroundOrArena())
+    {
+        for (GridRefManager<NGridType>::iterator i = GridRefManager<NGridType>::begin(); i != GridRefManager<NGridType>::end(); )
+        {
+            NGridType *grid = i->getSource();
+            GridInfo *info = i->getSource()->getGridInfoRef();
+            ++i;                                                // The update might delete the map and we need the next map before the iterator gets invalid
+            ASSERT(grid->GetGridState() >= 0 && grid->GetGridState() < MAX_GRID_STATE);
+            si_GridStates[grid->GetGridState()]->Update(*this, *grid, *info, grid->getX(), grid->getY(), t_diff);
+        }
+    }
+}
+
 void Map::AddObjectToRemoveList(WorldObject *obj)
 {
     ASSERT(obj->GetMapId() == GetId() && obj->GetInstanceId() == GetInstanceId());
@@ -2355,9 +2364,10 @@ template void Map::Remove(DynamicObject *, bool);
 
 /* ******* Dungeon Instance Maps ******* */
 
-InstanceMap::InstanceMap(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode)
-  : Map(id, expiry, InstanceId, SpawnMode), i_data(NULL),
-    m_resetAfterUnload(false), m_unloadWhenEmpty(false)
+InstanceMap::InstanceMap(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode, Map* _parent)
+  : Map(id, expiry, InstanceId, SpawnMode, _parent),
+    m_resetAfterUnload(false), m_unloadWhenEmpty(false),
+    i_data(NULL)
 {
     //lets initialize visibility distance for dungeons
     InstanceMap::InitVisibilityDistance();
@@ -2699,8 +2709,8 @@ void InstanceMap::SetResetSchedule(bool on)
 
 /* ******* Battleground Instance Maps ******* */
 
-BattleGroundMap::BattleGroundMap(uint32 id, time_t expiry, uint32 InstanceId)
-  : Map(id, expiry, InstanceId, DIFFICULTY_NORMAL)
+BattleGroundMap::BattleGroundMap(uint32 id, time_t expiry, uint32 InstanceId, Map* _parent)
+  : Map(id, expiry, InstanceId, DIFFICULTY_NORMAL, _parent)
 {
     //lets initialize visibility distance for BG/Arenas
     BattleGroundMap::InitVisibilityDistance();
@@ -2720,7 +2730,7 @@ bool BattleGroundMap::CanEnter(Player * player)
 {
     if (player->GetMapRef().getTarget() == this)
     {
-        sLog.outError("BGMap::CanEnter - player %u already in map!", player->GetGUIDLow());
+        sLog.outError("BGMap::CanEnter - player %u is already in map!", player->GetGUIDLow());
         ASSERT(false);
         return false;
     }

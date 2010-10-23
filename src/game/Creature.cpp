@@ -138,6 +138,12 @@ bool AssistDelayEvent::Execute(uint64 /*e_time*/, uint32 /*p_time*/)
     return true;
 }
 
+bool ForcedDespawnDelayEvent::Execute(uint64 /*e_time*/, uint32 /*p_time*/)
+{
+    m_owner.ForcedDespawn();
+    return true;
+}
+
 Creature::Creature() :
 Unit(),
 lootForPickPocketed(false), lootForBody(false), m_lootMoney(0), m_lootRecipient(0),
@@ -163,8 +169,6 @@ m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL),m_creatureInfo(NULL), m_DBTabl
 
 Creature::~Creature()
 {
-    CleanupsBeforeDelete();
-
     m_vendorItemCounts.clear();
 
     delete i_AI;
@@ -628,8 +632,8 @@ bool Creature::Create(uint32 guidlow, Map *map, uint32 Entry, uint32 team, float
         return false;
     }
 
-    SetMapId(map->GetId());
-    SetInstanceId(map->GetInstanceId());
+    ASSERT(map);
+    SetMap(map);
 
     //oX = x;     oY = y;    dX = x;    dY = y;    m_moveTime = 0;    m_startMove = 0;
     const bool bResult = CreateFromProto(guidlow, Entry, team, data);
@@ -1399,11 +1403,20 @@ void Creature::Respawn()
     }
 }
 
-void Creature::ForcedDespawn()
+void Creature::ForcedDespawn(uint32 timeMSToDespawn)
 {
-    setDeathState(JUST_DIED);
+    if (timeMSToDespawn)
+    {
+        ForcedDespawnDelayEvent *pEvent = new ForcedDespawnDelayEvent(*this);
+
+        m_Events.AddEvent(pEvent, m_Events.CalculateTime(timeMSToDespawn));
+        return;
+    }
+
+    if (isAlive())
+        setDeathState(JUST_DIED);
+
     RemoveCorpse();
-    SetHealth(0);                                           // just for nice GM-mode view
 }
 
 bool Creature::IsImmunedToSpell(SpellEntry const* spellInfo, bool useCharges)

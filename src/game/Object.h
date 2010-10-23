@@ -100,7 +100,7 @@ class Object
             if (m_inWorld)
                 return;
 
-            assert(m_uint32Values);
+            ASSERT(m_uint32Values);
 
             m_inWorld = true;
 
@@ -169,7 +169,7 @@ class Object
             return *(((uint8*)&m_uint32Values[ index ])+offset);
         }
 
-        uint8 GetUInt16Value(uint16 index, uint8 offset) const
+        uint16 GetUInt16Value(uint16 index, uint8 offset) const
         {
             ASSERT(index < m_valuesCount || PrintIndexError(index , false));
             ASSERT(offset < 2);
@@ -279,16 +279,16 @@ class Object
 
         virtual bool hasQuest(uint32 /* quest_id */) const { return false; }
         virtual bool hasInvolvedQuest(uint32 /* quest_id */) const { return false; }
-        virtual void BuildUpdate(UpdateDataMapType& ) {}
+        virtual void BuildUpdate(UpdateDataMapType&) {}
         void BuildFieldsUpdate(Player *, UpdateDataMapType &) const;
 
         // FG: some hacky helpers
         void ForceValuesUpdateAtIndex(uint32);
 
-        Player* ToPlayer(){ if(GetTypeId() == TYPEID_PLAYER)  return reinterpret_cast<Player*>(this); else return NULL;  }
-        const Player* ToPlayer() const { if(GetTypeId() == TYPEID_PLAYER)  return (const Player*)((Player*)this); else return NULL;  }
-        Creature* ToCreature(){ if(GetTypeId() == TYPEID_UNIT) return reinterpret_cast<Creature*>(this); else return NULL; }
-        const Creature* ToCreature() const {if(GetTypeId() == TYPEID_UNIT) return (const Creature*)((Creature*)this); else return NULL; }
+        Player* ToPlayer(){ if (GetTypeId() == TYPEID_PLAYER)  return reinterpret_cast<Player*>(this); else return NULL;  }
+        const Player* ToPlayer() const { if (GetTypeId() == TYPEID_PLAYER)  return (const Player*)((Player*)this); else return NULL;  }
+        Creature* ToCreature(){ if (GetTypeId() == TYPEID_UNIT) return reinterpret_cast<Creature*>(this); else return NULL; }
+        const Creature* ToCreature() const {if (GetTypeId() == TYPEID_UNIT) return (const Creature*)((Creature*)this); else return NULL; }
 
     protected:
 
@@ -339,7 +339,7 @@ class WorldObject : public Object, public WorldLocation
 
         virtual void Update (uint32 /*time_diff*/) { }
 
-        void _Create(uint32 guidlow, HighGuid guidhigh, uint32 mapid);
+        void _Create(uint32 guidlow, HighGuid guidhigh);
 
         void Relocate(float x, float y, float z, float orientation)
         {
@@ -395,9 +395,7 @@ class WorldObject : public Object, public WorldLocation
 
         void GetRandomPoint(float x, float y, float z, float distance, float &rand_x, float &rand_y, float &rand_z) const;
 
-        void SetMapId(uint32 newMap) { m_mapId = newMap; m_map = NULL; }
         uint32 GetMapId() const { return m_mapId; }
-        void SetInstanceId(uint32 val) { m_InstanceId = val; m_map = NULL; }
         uint32 GetInstanceId() const { return m_InstanceId; }
 
         uint32 GetZoneId() const;
@@ -435,10 +433,17 @@ class WorldObject : public Object, public WorldLocation
             { return sqrt(GetExactDistSq(pos)); }
 
         float GetDistanceZ(const WorldObject* obj) const;
-        bool IsInMap(const WorldObject* obj) const { return GetMapId() == obj->GetMapId() && GetInstanceId() == obj->GetInstanceId(); }
+
+        bool IsInMap(const WorldObject* obj) const
+        {
+            if (obj)
+                return IsInWorld() && obj->IsInWorld() && (GetMap() == obj->GetMap());
+            else
+                return false;
+        }
         bool _IsWithinDist(WorldObject const* obj, float dist2compare, bool is3D) const;
+        // use only if you will sure about placing both object at same map
         bool IsWithinDist(WorldObject const* obj, float dist2compare, bool is3D = true) const
-                                                            // use only if you will sure about placing both object at same map
         {
             return obj && _IsWithinDist(obj,dist2compare,is3D);
         }
@@ -446,9 +451,8 @@ class WorldObject : public Object, public WorldLocation
         {
             return obj && IsInMap(obj) && _IsWithinDist(obj,dist2compare,is3D);
         }
-        bool IsWithinLOS(const float x, const float y, const float z) const;
+        bool IsWithinLOS(float x, float y, float z) const;
         bool IsWithinLOSInMap(const WorldObject* obj) const;
-
         bool GetDistanceOrder(WorldObject const* obj1, WorldObject const* obj2, bool is3D = true) const;
         bool IsInRange(WorldObject const* obj, float minRange, float maxRange, bool is3D = true) const;
         bool IsInRange2d(float x, float y, float minRange, float maxRange) const;
@@ -475,9 +479,9 @@ class WorldObject : public Object, public WorldLocation
         void BuildMonsterChat(WorldPacket *data, uint8 msgtype, char const* text, uint32 language, char const* name, uint64 TargetGuid) const;
 
         void SendObjectDeSpawnAnim(uint64 guid);
+        void SendGameObjectCustomAnim(uint64 guid);
 
         virtual void SaveRespawnTime() {}
-
         void AddObjectToRemoveList();
 
         // main visibility check function in normal case (ignore grey zone distance check)
@@ -489,14 +493,21 @@ class WorldObject : public Object, public WorldLocation
         // Low Level Packets
         void SendPlaySound(uint32 Sound, bool OnlySelf);
 
-        Map      * GetMap() const   { return m_map ? m_map : const_cast<WorldObject*>(this)->_getMap(); }
-        Map      * FindMap() const  { return m_map ? m_map : const_cast<WorldObject*>(this)->_findMap(); }
+        void SetMap(Map * map);
+        Map * GetMap() const { ASSERT(m_currMap); return m_currMap; }
+        Map * FindMap() const { return m_currMap; }
+        //used to check all object's GetMap() calls when object is not in world!
+        void ResetMap() { m_currMap = NULL; }
+
+        //this function should be removed in nearest time...
         Map const* GetBaseMap() const;
+
         void SetZoneScript();
 
         Creature*   SummonCreature(uint32 id, float x, float y, float z, float ang,TempSummonType spwtype,uint32 despwtime);
         GameObject* SummonGameObject(uint32 entry, float x, float y, float z, float ang, float rotation0, float rotation1, float rotation2, float rotation3, uint32 respawnTime);
         Creature*   SummonTrigger(float x, float y, float z, float ang, uint32 dur, CreatureAI* (*GetAI)(Creature*) = NULL);
+
         Creature*   FindNearestCreature(uint32 entry, float range, bool alive = true);
         GameObject* FindNearestGameObject(uint32 entry, float range);
 
@@ -520,13 +531,17 @@ class WorldObject : public Object, public WorldLocation
         bool m_isActive;
         ZoneScript *m_zoneScript;
 
+        //these functions are used mostly for Relocate() and Corpse/Player specific stuff...
+        //use them ONLY in LoadFromDB()/Create() funcs and nowhere else!
+        //mapId/instanceId should be set in SetMap() function!
+        void SetLocationMapId(uint32 _mapId) { m_mapId = _mapId; }
+        void SetLocationInstanceId(uint32 _instanceId) { m_InstanceId = _instanceId; }
+
     private:
+        Map * m_currMap;                                    //current object's Map location
+
         uint32 m_mapId;
         uint32 m_InstanceId;
-        Map    *m_map;
-
-        Map* _getMap();
-        Map* _findMap();
 
         float m_positionX;
         float m_positionY;
@@ -534,4 +549,3 @@ class WorldObject : public Object, public WorldLocation
         float m_orientation;
 };
 #endif
-
