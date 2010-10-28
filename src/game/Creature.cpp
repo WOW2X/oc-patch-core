@@ -165,6 +165,9 @@ m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL),m_creatureInfo(NULL), m_DBTabl
     m_GlobalCooldown = 0;
     m_unit_movement_flags = MOVEFLAG_WALK_MODE;
     DisableReputationGain = false;
+
+    m_SightDistance = sWorld.getConfig(CONFIG_SIGHT_MONSTER);
+    m_CombatDistance = MELEE_RANGE;
 }
 
 Creature::~Creature()
@@ -625,15 +628,16 @@ bool Creature::AIM_Initialize(CreatureAI* ai)
 
 bool Creature::Create(uint32 guidlow, Map *map, uint32 Entry, uint32 team, float x, float y, float z, float ang, const CreatureData *data)
 {
+    ASSERT(map);
+    SetMap(map);
+
     Relocate(x, y, z, ang);
+
     if (!IsPositionValid())
     {
         sLog.outError("Creature (guidlow %d, entry %d) not loaded. Suggested coordinates isn't valid (X: %f Y: %f)",guidlow,Entry,x,y);
         return false;
     }
-
-    ASSERT(map);
-    SetMap(map);
 
     //oX = x;     oY = y;    dX = x;    dY = y;    m_moveTime = 0;    m_startMove = 0;
     const bool bResult = CreateFromProto(guidlow, Entry, team, data);
@@ -1226,11 +1230,6 @@ bool Creature::canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList, bo
     return true;
 }
 
-bool Creature::IsWithinSightDist(Unit const* u) const
-{
-    return IsWithinDistInMap(u, sWorld.getConfig(CONFIG_SIGHT_MONSTER));
-}
-
 bool Creature::canStartAttack(Unit const* who) const
 {
     if (isCivilian()
@@ -1746,7 +1745,7 @@ bool Creature::IsOutOfThreatArea(Unit* pVictim) const
     if (sMapStore.LookupEntry(GetMapId())->IsDungeon())
         return false;
 
-    float length = pVictim->GetDistance(mHome_X, mHome_Y, mHome_Z);
+    float length = pVictim->GetDistance(m_homePosition);
     float AttackDist = GetAttackDistance(pVictim);
     uint32 ThreatRadius = sWorld.getConfig(CONFIG_THREAT_RADIUS);
 

@@ -406,7 +406,7 @@ typedef std::map<uint32,time_t> CreatureSpellCooldowns;
 
 #define MAX_VENDOR_ITEMS 255                                // Limitation in item count field size in SMSG_LIST_INVENTORY
 
-class Creature : public Unit
+class Creature : public Unit, public GridObject<Creature>
 {
     public:
 
@@ -475,7 +475,7 @@ class Creature : public Unit
         bool AIM_Initialize(CreatureAI* ai = NULL);
 
         void AI_SendMoveToPacket(float x, float y, float z, uint32 time, uint32 MovementFlags, uint8 type);
-        CreatureAI* AI() { return (CreatureAI*)i_AI; }
+        CreatureAI * AI() const { return (CreatureAI*)i_AI; }
 
         uint32 GetShieldBlockValue() const                  //dunno mob block value
         {
@@ -559,7 +559,6 @@ class Creature : public Unit
         uint32 m_GlobalCooldown;
 
         bool canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList = false, bool is3dDistance = true) const;
-        bool IsWithinSightDist(Unit const* u) const;
         bool canStartAttack(Unit const* u) const;
         float GetAttackDistance(Unit const* pl) const;
 
@@ -607,7 +606,6 @@ class Creature : public Unit
         bool hasQuest(uint32 quest_id) const;
         bool hasInvolvedQuest(uint32 quest_id)  const;
 
-        GridReference<Creature> &GetGridRef() { return m_gridRef; }
         bool isRegeneratingHealth() { return m_regenHealth; }
         virtual uint8 GetPetAutoSpellSize() const { return CREATURE_MAX_SPELLS; }
         virtual uint32 GetPetAutoSpellOnPos(uint8 pos) const
@@ -618,8 +616,10 @@ class Creature : public Unit
                 return m_charmInfo->GetCharmSpell(pos)->spellId;
         }
 
-        void SetHomePosition(float x, float y, float z, float ori) { mHome_X = x; mHome_Y = y; mHome_Z = z; mHome_O = ori;}
-        void GetHomePosition(float &x, float &y, float &z, float &ori) { x = mHome_X; y = mHome_Y; z = mHome_Z; ori = mHome_O; }
+        void SetHomePosition(float x, float y, float z, float o) { m_homePosition.Relocate(x, y, z, o); }
+        void SetHomePosition(const Position &pos) { m_homePosition.Relocate(pos); }
+        void GetHomePosition(float &x, float &y, float &z, float &ori) { m_homePosition.GetPosition(x, y, z, ori); }
+        Position GetHomePosition() { return m_homePosition; }
 
         uint32 GetGlobalCooldown() const { return m_GlobalCooldown; }
 
@@ -647,7 +647,8 @@ class Creature : public Unit
         }
         void ResetPlayerDamageReq() { m_PlayerDamageReq = GetHealth() / 2; }
         uint32 m_PlayerDamageReq;
-
+		
+        float m_SightDistance, m_CombatDistance;
     protected:
         bool CreateFromProto(uint32 guidlow,uint32 Entry,uint32 team, const CreatureData *data = NULL);
         bool InitEntry(uint32 entry, uint32 team=ALLIANCE, const CreatureData* data=NULL);
@@ -691,10 +692,7 @@ class Creature : public Unit
         SpellSchoolMask m_meleeDamageSchoolMask;
         uint32 m_originalEntry;
 
-        float mHome_X;
-        float mHome_Y;
-        float mHome_Z;
-        float mHome_O;
+        Position m_homePosition;
 
         bool DisableReputationGain;
 
@@ -708,7 +706,6 @@ class Creature : public Unit
         //Formation var
         CreatureGroup *m_formation;
 
-        GridReference<Creature> m_gridRef;
         CreatureInfo const* m_creatureInfo;                 // in heroic mode can different from ObjMgr::GetCreatureTemplate(GetEntry())
 };
 

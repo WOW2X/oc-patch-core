@@ -158,18 +158,18 @@ void MovementInfo::Read(ByteBuffer &data)
     data >> moveFlags;
     data >> moveFlags2;
     data >> time;
-    data >> pos.x;
-    data >> pos.y;
-    data >> pos.z;
-    data >> pos.o;
+    data >> pos.m_positionX;
+    data >> pos.m_positionY;
+    data >> pos.m_positionZ;
+    data >> pos.m_orientation;
 
     if (HasMovementFlag(MOVEFLAG_ONTRANSPORT))
     {
         data >> t_guid;
-        data >> t_pos.x;
-        data >> t_pos.y;
-        data >> t_pos.z;
-        data >> t_pos.o;
+        data >> t_pos.m_positionX;
+        data >> t_pos.m_positionY;
+        data >> t_pos.m_positionZ;
+        data >> t_pos.m_orientation;
         data >> t_time;
     }
     if (HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING2)))
@@ -194,18 +194,18 @@ void MovementInfo::Write(ByteBuffer &data) const
     data << moveFlags;
     data << moveFlags2;
     data << time;
-    data << pos.x;
-    data << pos.y;
-    data << pos.z;
-    data << pos.o;
+    data << pos.GetPositionX();
+    data << pos.GetPositionY();
+    data << pos.GetPositionZ();
+    data << pos.GetOrientation();
 
     if (HasMovementFlag(MOVEFLAG_ONTRANSPORT))
     {
         data << t_guid;
-        data << t_pos.x;
-        data << t_pos.y;
-        data << t_pos.z;
-        data << t_pos.o;
+        data << t_pos.GetPositionX();
+        data << t_pos.GetPositionY();
+        data << t_pos.GetPositionZ();
+        data << t_pos.GetOrientation();
         data << t_time;
     }
     if (HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING2)))
@@ -227,7 +227,7 @@ void MovementInfo::Write(ByteBuffer &data) const
 
 Unit::Unit()
 : WorldObject(), i_motionMaster(this), m_ThreatManager(this), m_HostileRefManager(this)
-, m_NotifyListPos(-1), m_Notified(false), IsAIEnabled(false), NeedChangeAI(false)
+, IsAIEnabled(false), NeedChangeAI(false)
 , i_AI(NULL), i_disabledAI(NULL), m_removedAurasCount(0), m_procDeep(0)
 {
     m_objectType |= TYPEMASK_UNIT;
@@ -1066,7 +1066,7 @@ void Unit::CastSpell(Unit* Victim,SpellEntry const *spellInfo, bool triggered, I
             sLog.outError("CastSpell: spell id %i by caster: %s %u) does not have destination", spellInfo->Id,(GetTypeId() == TYPEID_PLAYER ? "player (GUID:" : "creature (Entry:"),(GetTypeId() == TYPEID_PLAYER ? GetGUIDLow() : GetEntry()));
             return;
         }
-        targets.setDestination(Victim);
+        targets.setDst(Victim);
     }
 
     if (castItem)
@@ -1136,7 +1136,7 @@ void Unit::CastCustomSpell(uint32 spellId, CustomSpellValues const &value, Unit*
             sLog.outError("CastSpell: spell id %i by caster: %s %u) does not have destination", spellInfo->Id,(GetTypeId() == TYPEID_PLAYER ? "player (GUID:" : "creature (Entry:"),(GetTypeId() == TYPEID_PLAYER ? GetGUIDLow() : GetEntry()));
             return;
         }
-        targets.setDestination(Victim);
+        targets.setDst(Victim);
     }
 
     if (!originalCaster && triggeredByAura)
@@ -1176,7 +1176,7 @@ void Unit::CastSpell(float x, float y, float z, uint32 spellId, bool triggered, 
     Spell *spell = new Spell(this, spellInfo, triggered, originalCaster);
 
     SpellCastTargets targets;
-    targets.setDestination(x, y, z);
+    targets.setDst(x, y, z);
     spell->m_CastItem = castItem;
     spell->prepare(&targets, triggeredByAura);
 }
@@ -3189,14 +3189,6 @@ bool Unit::isInBack(Unit const* target, float distance, float arc) const
     return IsWithinDistInMap(target, distance) && !HasInArc(2 * M_PI - arc, target);
 }
 
-bool Unit::isInLine(Unit const* target, float distance) const
-{
-    if (!HasInArc(M_PI, target) || !IsWithinDistInMap(target, distance)) return false;
-    float width = GetObjectSize() + target->GetObjectSize() * 0.5f;
-    float angle = GetAngle(target) - GetOrientation();
-    return abs(sin(angle)) * GetExactDistance2d(target->GetPositionX(), target->GetPositionY()) < width;
-}
-
 bool Unit::isInAccessiblePlaceFor(Creature const* c) const
 {
     if (IsInWater())
@@ -3435,12 +3427,17 @@ bool Unit::AddAura(Aura *Aur)
                         if (Aur->GetStackAmount() < aurSpellInfo->StackAmount)
                             Aur->SetStackAmount(Aur->GetStackAmount()+1);
                     }
+
                     // Allow mongoose procs from different weapon stacks
-                    if (Aur->GetId() == 28093 && Aur->GetCastItemGUID() != i2->second->GetCastItemGUID())
+                    if (Aur->GetId() == 28093 || Aur->GetId() == 20007)
                     {
-                        i2++;
-                        continue;
+                        if (Aur->GetCastItemGUID() != i2->second->GetCastItemGUID())
+                        {
+                            i2++;
+                            continue;
+                        }
                     }
+
                     RemoveAura(i2,AURA_REMOVE_BY_STACK);
                     i2 = m_Auras.lower_bound(spair);
                     continue;
@@ -4264,14 +4261,14 @@ DynamicObject * Unit::GetDynObject(uint32 spellId)
 
 void Unit::AddGameObject(GameObject* gameObj)
 {
-    ASSERT(gameObj && gameObj->GetOwnerGUID() == 0);
+    if (!gameObj || !gameObj->GetOwnerGUID() == 0) return;
     m_gameObj.push_back(gameObj);
     gameObj->SetOwnerGUID(GetGUID());
 }
 
 void Unit::RemoveGameObject(GameObject* gameObj, bool del)
 {
-    ASSERT(gameObj && gameObj->GetOwnerGUID() == GetGUID());
+    if (!gameObj || !gameObj->GetOwnerGUID() == GetGUID()) return;
 
     gameObj->SetOwnerGUID(0);
 
@@ -6917,7 +6914,7 @@ Unit* Unit::GetCharm() const
             return pet;
 
         sLog.outError("Unit::GetCharm: Charmed creature %u not exist.",GUID_LOPART(charm_guid));
-        const_cast<Unit*>(this)->SetCharm(0);
+        const_cast<Unit*>(this)->SetCharm(NULL);
     }
 
     return NULL;
@@ -6942,7 +6939,6 @@ void Unit::AddPlayerToVision(Player* plr)
         SetWorldObject(true);
     }
     m_sharedVision.push_back(plr);
-    plr->SetFarsightTarget(this);
 }
 
 void Unit::RemovePlayerFromVision(Player* plr)
@@ -6953,7 +6949,6 @@ void Unit::RemovePlayerFromVision(Player* plr)
         setActive(false);
         SetWorldObject(false);
     }
-    plr->ClearFarsight();
 }
 
 void Unit::RemoveBindSightAuras()
@@ -8620,11 +8615,7 @@ void Unit::DestroyForNearbyPlayers()
 void Unit::SetVisibility(UnitVisibility x)
 {
     m_Visibility = x;
-
-    SetToNotify();
-
-    if (x == VISIBILITY_GROUP_STEALTH)
-        DestroyForNearbyPlayers();
+    UpdateObjectVisibility();
 }
 
 void Unit::UpdateSpeed(UnitMoveType mtype, bool forced, float ratio)
@@ -9715,9 +9706,6 @@ void Unit::AddToWorld()
     if (!IsInWorld())
     {
         WorldObject::AddToWorld();
-        m_Notified = false;
-        ASSERT(m_NotifyListPos < 0); //instance : crash
-        SetToNotify();
     }
 }
 
@@ -9730,11 +9718,8 @@ void Unit::RemoveFromWorld()
         RemoveBindSightAuras();
         RemoveNotOwnSingleTargetAuras();
 
-        if (m_NotifyListPos >= 0)
-        {
-            GetMap()->RemoveUnitFromNotify(m_NotifyListPos);
-            m_NotifyListPos = -1;
-        }
+        RemoveAllGameObjects();
+        RemoveAllDynObjects();
 
         WorldObject::RemoveFromWorld();
     }
@@ -9756,8 +9741,6 @@ void Unit::CleanupsBeforeDelete()
     ClearComboPointHolders();
     DeleteThreatList();
     getHostileRefManager().setOnlineOfflineState(false);
-    RemoveAllGameObjects();
-    RemoveAllDynObjects();
     GetMotionMaster()->Clear(false);                    // remove different non-standard movement generators.
 }
 
@@ -11244,13 +11227,6 @@ void Unit::NearTeleportTo(float x, float y, float z, float orientation, bool cas
 
 /*-----------------------Oregon-----------------------------*/
 
-void Unit::SetToNotify()
-{
-    // it is called somewhere when obj is not in world (crash when log in instance)
-    if (m_NotifyListPos < 0)
-        GetMap()->AddUnitToNotify(this);
-}
-
 void Unit::Kill(Unit *pVictim, bool durabilityLoss)
 {
     //ASSERT(pVictim->IsInWorld() && pVictim->FindMap());
@@ -11603,21 +11579,29 @@ void Unit::SetConfused(bool apply)
         ToPlayer()->SetClientControl(this, !apply);
 }
 
-void Unit::SetCharmedOrPossessedBy(Unit* charmer, bool possess)
+void Unit::SetCharmedBy(Unit* charmer, CharmType type)
 {
     if (!charmer)
         return;
 
-    ASSERT(!possess || charmer->GetTypeId() == TYPEID_PLAYER);
+    ASSERT(type != CHARM_TYPE_POSSESS || charmer->GetTypeId() == TYPEID_PLAYER);
+
+    sLog.outDebug("SetCharmedBy: charmer %u, charmed %u, type %u.", charmer->GetEntry(), GetEntry(), (uint32)type);
 
     if (this == charmer)
+    {
+        sLog.outCrash("Unit::SetCharmedBy: Unit %u is trying to charm itself!", GetEntry());
         return;
+    }
 
     if (isInFlight())
         return;
 
     if (GetTypeId() == TYPEID_PLAYER && ToPlayer()->GetTransport())
+    {
+        sLog.outCrash("Unit::SetCharmedBy: Player on transport is trying to charm %u", GetEntry());
         return;
+    }
 
     RemoveUnitMovementFlag(MOVEFLAG_WALK_MODE);
     CastStop();
@@ -11626,20 +11610,28 @@ void Unit::SetCharmedOrPossessedBy(Unit* charmer, bool possess)
 
     // Charmer stop charming
     if (charmer->GetTypeId() == TYPEID_PLAYER)
+    {
         charmer->ToPlayer()->StopCastingCharm();
+        charmer->ToPlayer()->StopCastingBindSight();
+    }
 
     // Charmed stop charming
     if (GetTypeId() == TYPEID_PLAYER)
+    {
         ToPlayer()->StopCastingCharm();
+        ToPlayer()->StopCastingBindSight();
+    }
 
     // StopCastingCharm may remove a possessed pet?
     if (!IsInWorld())
+    {
+        sLog.outCrash("Unit::SetCharmedBy: %u is not in world but %u is trying to charm it!", GetEntry(), charmer->GetEntry());
         return;
+    }
 
     // Set charmed
-    charmer->SetCharm(this);
-    SetCharmerGUID(charmer->GetGUID());
     setFaction(charmer->getFaction());
+    charmer->SetCharm(this);
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
 
     if (GetTypeId() == TYPEID_UNIT)
@@ -11652,53 +11644,57 @@ void Unit::SetCharmedOrPossessedBy(Unit* charmer, bool possess)
     {
         if (ToPlayer()->isAFK())
             ToPlayer()->ToggleAFK();
-        ToPlayer()->SetViewport(GetGUID(), false);
+        ToPlayer()->SetClientControl(this, 0);
     }
 
     // Pets already have a properly initialized CharmInfo, don't overwrite it.
-    if (GetTypeId() == TYPEID_PLAYER || GetTypeId() == TYPEID_UNIT && !ToCreature()->isPet())
+    if (!GetCharmInfo())
     {
         CharmInfo *charmInfo = InitCharmInfo();
-        if (possess)
+        if (type == CHARM_TYPE_POSSESS)
             charmInfo->InitPossessCreateSpells();
         else
             charmInfo->InitCharmCreateSpells();
     }
 
-    //Set possessed
-    if (possess)
+    if (charmer->GetTypeId() == TYPEID_PLAYER)
     {
-        addUnitState(UNIT_STAT_POSSESSED);
-        SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
-        AddPlayerToVision(charmer->ToPlayer());
-        charmer->ToPlayer()->SetViewport(GetGUID(), true);
-        charmer->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
-    }
-    // Charm demon
-    else if (GetTypeId() == TYPEID_UNIT && charmer->GetTypeId() == TYPEID_PLAYER && charmer->getClass() == CLASS_WARLOCK)
-    {
-        CreatureInfo const *cinfo = ToCreature()->GetCreatureInfo();
-        if (cinfo && cinfo->type == CREATURE_TYPE_DEMON)
+        switch(type)
         {
-            //to prevent client crash
-            SetFlag(UNIT_FIELD_BYTES_0, 2048);
+            case CHARM_TYPE_POSSESS:
+                addUnitState(UNIT_STAT_POSSESSED);
+                SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
+                AddPlayerToVision(charmer->ToPlayer());
+                charmer->ToPlayer()->SetClientControl(this, 1);
+                charmer->ToPlayer()->SetViewpoint(this, true);
+                charmer->ToPlayer()->PossessSpellInitialize();
+                break;
+            case CHARM_TYPE_CHARM:
+                if (GetTypeId() == TYPEID_UNIT && charmer->getClass() == CLASS_WARLOCK)
+                {
+                    CreatureInfo const *cinfo = ToCreature()->GetCreatureInfo();
+                    if (cinfo && cinfo->type == CREATURE_TYPE_DEMON)
+                    {
+                        //to prevent client crash
+                        SetFlag(UNIT_FIELD_BYTES_0, 2048);
 
-            //just to enable stat window
-            if (GetCharmInfo())
-                GetCharmInfo()->SetPetNumber(objmgr.GeneratePetNumber(), true);
+                        //just to enable stat window
+                        if (GetCharmInfo())
+                            GetCharmInfo()->SetPetNumber(objmgr.GeneratePetNumber(), true);
 
-            //if charmed two demons the same session, the 2nd gets the 1st one's name
-            SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, time(NULL));
+                        //if charmed two demons the same session, the 2nd gets the 1st one's name
+                        SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, time(NULL));
+                    }
+                }
+                charmer->ToPlayer()->CharmSpellInitialize();
+                break;
+            default:
+                break;
         }
     }
-
-    if (possess)
-        charmer->ToPlayer()->PossessSpellInitialize();
-    else if (charmer->GetTypeId() == TYPEID_PLAYER)
-        charmer->ToPlayer()->CharmSpellInitialize();
 }
 
-void Unit::RemoveCharmedOrPossessedBy(Unit *charmer)
+void Unit::RemoveCharmedBy(Unit *charmer)
 {
     if (!isCharmed())
         return;
@@ -11708,17 +11704,20 @@ void Unit::RemoveCharmedOrPossessedBy(Unit *charmer)
     if (charmer != GetCharmer()) // one aura overrides another?
         return;
 
-    bool possess = hasUnitState(UNIT_STAT_POSSESSED);
+    CharmType type;
+    if (hasUnitState(UNIT_STAT_POSSESSED))
+        type = CHARM_TYPE_POSSESS;
+    else
+        type = CHARM_TYPE_CHARM;
 
     CastStop();
     CombatStop(); //TODO: CombatStop(true) may cause crash (interrupt spells)
     getHostileRefManager().deleteReferences();
     DeleteThreatList();
-    SetCharmerGUID(0);
     RestoreFaction();
     GetMotionMaster()->InitDefault();
 
-    if (possess)
+    if (type == CHARM_TYPE_POSSESS)
     {
         clearUnitState(UNIT_STAT_POSSESSED);
         RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED);
@@ -11742,52 +11741,54 @@ void Unit::RemoveCharmedOrPossessedBy(Unit *charmer)
         }
     }
     else
-        ToPlayer()->SetViewport(GetGUID(), true);
+        ((Player*)this)->SetClientControl(this, 1);
 
     // If charmer still exists
     if (!charmer)
         return;
 
-    ASSERT(!possess || charmer->GetTypeId() == TYPEID_PLAYER);
+    ASSERT(type != CHARM_TYPE_POSSESS || charmer->GetTypeId() == TYPEID_PLAYER);
 
     charmer->SetCharm(0);
-    if (possess)
-    {
-        RemovePlayerFromVision(charmer->ToPlayer());
-        charmer->ToPlayer()->SetViewport(charmer->GetGUID(), true);
-        charmer->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
-    }
-    // restore UNIT_FIELD_BYTES_0
-    else if (GetTypeId() == TYPEID_UNIT && charmer->GetTypeId() == TYPEID_PLAYER && charmer->getClass() == CLASS_WARLOCK)
-    {
-        CreatureInfo const *cinfo = ToCreature()->GetCreatureInfo();
-        if (cinfo && cinfo->type == CREATURE_TYPE_DEMON)
-        {
-            CreatureDataAddon const *cainfo = ToCreature()->GetCreatureAddon();
-            if (cainfo && cainfo->bytes0 != 0)
-                SetUInt32Value(UNIT_FIELD_BYTES_0, cainfo->bytes0);
-            else
-                RemoveFlag(UNIT_FIELD_BYTES_0, 2048);
 
-            if (GetCharmInfo())
-                GetCharmInfo()->SetPetNumber(0, true);
-            else
-                sLog.outError("Aura::HandleModCharm: target="UI64FMTD" with typeid=%d has a charm aura but no charm info!", GetGUID(), GetTypeId());
+    if (charmer->GetTypeId() == TYPEID_PLAYER)
+    {
+        switch (type)
+        {
+            case CHARM_TYPE_POSSESS:
+                RemovePlayerFromVision(charmer->ToPlayer());
+                ((Player*)charmer)->SetClientControl(charmer, 1);
+                ((Player*)charmer)->SetViewpoint(this, false);
+                charmer->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE);
+                break;
+            case CHARM_TYPE_CHARM:
+                if (GetTypeId() == TYPEID_UNIT && charmer->getClass() == CLASS_WARLOCK)
+                {
+                    CreatureInfo const *cinfo = ToCreature()->GetCreatureInfo();
+                    if (cinfo && cinfo->type == CREATURE_TYPE_DEMON)
+                    {
+                        CreatureDataAddon const *cainfo = ToCreature()->GetCreatureAddon();
+                        if (cainfo && cainfo->bytes0 != 0)
+                            SetUInt32Value(UNIT_FIELD_BYTES_0, cainfo->bytes0);
+                        else
+                            RemoveFlag(UNIT_FIELD_BYTES_0, 2048);
+
+                        if (GetCharmInfo())
+                            GetCharmInfo()->SetPetNumber(0, true);
+                        else
+                            sLog.outError("Aura::HandleModCharm: target="UI64FMTD" with typeid=%d has a charm aura but no charm info!", GetGUID(), GetTypeId());
+                    }
+                }
+                break;
+            default:
+                break;
         }
     }
 
-    if (GetTypeId() == TYPEID_PLAYER || GetTypeId() == TYPEID_UNIT && !ToCreature()->isPet())
-    {
+    if (charmer->GetTypeId() == TYPEID_PLAYER && type == CHARM_TYPE_POSSESS)
+        charmer->ToPlayer()->SendRemoveControlBar();
+    else if (GetTypeId() == TYPEID_PLAYER || GetTypeId() == TYPEID_UNIT && !ToCreature()->isPet())
         DeleteCharmInfo();
-    }
-
-    if (possess || charmer->GetTypeId() == TYPEID_PLAYER)
-    {
-        // Remove pet spell action bar
-        WorldPacket data(SMSG_PET_SPELLS, 8);
-        data << uint64(0);
-        charmer->ToPlayer()->GetSession()->SendPacket(&data);
-    }
 }
 
 void Unit::RestoreFaction()
@@ -11944,6 +11945,19 @@ void Unit::SetFlying(bool apply)
     {
         RemoveByteFlag(UNIT_FIELD_BYTES_1, 3, 0x02);
         RemoveUnitMovementFlag(MOVEFLAG_FLYING | MOVEFLAG_FLYING2);
+    }
+}
+
+void Unit::UpdateObjectVisibility(bool forced)
+{
+    if (!forced)
+        AddToNotify(NOTIFY_VISIBILITY_CHANGED);
+    else
+    {
+        WorldObject::UpdateObjectVisibility(true);
+        // call MoveInLineOfSight for nearby creatures
+        Oregon::AIRelocationNotifier notifier(*this);
+        VisitNearbyObject(GetMap()->GetVisibilityDistance(), notifier);
     }
 }
 

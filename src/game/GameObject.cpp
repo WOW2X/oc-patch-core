@@ -131,9 +131,10 @@ void GameObject::RemoveFromWorld()
 
 bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, float x, float y, float z, float ang, float rotation0, float rotation1, float rotation2, float rotation3, uint32 animprogress, GOState go_state, uint32 artKit)
 {
-    Relocate(x,y,z,ang);
+    ASSERT(map);
     SetMap(map);
 
+    Relocate(x,y,z,ang);
     if (!IsPositionValid())
     {
         sLog.outError("Gameobject (GUID: %u Entry: %u) not created. Suggested coordinates isn't valid (X: %f Y: %f)",guidlow,name_id,x,y);
@@ -449,7 +450,7 @@ void GameObject::Update(uint32 diff)
             //burning flags in some battlegrounds, if you find better condition, just add it
             if (GetGoAnimProgress() > 0)
             {
-                SendObjectDeSpawnAnim(this->GetGUID());
+                SendObjectDeSpawnAnim(GetGUID());
                 //reset flags
                 SetUInt32Value(GAMEOBJECT_FLAGS, GetGOInfo()->flags);
             }
@@ -463,6 +464,7 @@ void GameObject::Update(uint32 diff)
             if (!m_spawnedByDefault)
             {
                 m_respawnTime = 0;
+                UpdateObjectVisibility();
                 return;
             }
 
@@ -621,18 +623,18 @@ bool GameObject::LoadFromDB(uint32 guid, Map *map)
     if (!Create(guid,entry, map, x, y, z, ang, rotation0, rotation1, rotation2, rotation3, animprogress, go_state, artKit))
         return false;
 
-    if (!GetDespawnPossibility())
+    if (data->spawntimesecs >= 0)
     {
-        SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NODESPAWN);
         m_spawnedByDefault = true;
-        m_respawnDelayTime = 0;
-        m_respawnTime = 0;
-    }
-    else
-    {
-        if (data->spawntimesecs >= 0)
+
+        if (!GetDespawnPossibility())
         {
-            m_spawnedByDefault = true;
+            SetFlag(GAMEOBJECT_FLAGS, GO_FLAG_NODESPAWN);
+            m_respawnDelayTime = 0;
+            m_respawnTime = 0;
+        }
+        else
+        {
             m_respawnDelayTime = data->spawntimesecs;
             m_respawnTime = objmgr.GetGORespawnTime(m_DBTableGuid, map->GetInstanceId());
 
@@ -643,12 +645,12 @@ bool GameObject::LoadFromDB(uint32 guid, Map *map)
                 objmgr.SaveGORespawnTime(m_DBTableGuid,GetInstanceId(),0);
             }
         }
-        else
-        {
-            m_spawnedByDefault = false;
-            m_respawnDelayTime = -data->spawntimesecs;
-            m_respawnTime = 0;
-        }
+    }
+    else
+    {
+        m_spawnedByDefault = false;
+        m_respawnDelayTime = -data->spawntimesecs;
+        m_respawnTime = 0;
     }
 
     m_goData = data;
@@ -762,7 +764,7 @@ bool GameObject::isVisibleForInState(Player const* u, bool inVisibleList) const
     }
 
     // check distance
-    return IsWithinDistInMap(u, World::GetMaxVisibleDistanceForObject() +
+    return IsWithinDistInMap(u->m_seer, World::GetMaxVisibleDistanceForObject() +
         (inVisibleList ? World::GetVisibleObjectGreyDistance() : 0.0f), false);
 }
 
@@ -796,12 +798,12 @@ void GameObject::Respawn()
     }
 }
 
-bool GameObject::ActivateToQuest(Player *pTarget)const
+bool GameObject::ActivateToQuest(Player *pTarget) const
 {
     if (!objmgr.IsGameObjectForQuests(GetEntry()))
         return false;
 
-    switch(GetGoType())
+    switch (GetGoType())
     {
         // scan GO chest with loot including quest items
         case GAMEOBJECT_TYPE_CHEST:
@@ -1389,14 +1391,9 @@ void GameObject::CastSpell(Unit* target, uint32 spell)
 const char* GameObject::GetNameForLocaleIdx(int32 loc_idx) const
 {
     if (loc_idx >= 0)
-    {
-        GameObjectLocale const *cl = objmgr.GetGameObjectLocale(GetEntry());
-        if (cl)
-        {
+        if (GameObjectLocale const *cl = objmgr.GetGameObjectLocale(GetEntry()))
             if (cl->Name.size() > loc_idx && !cl->Name[loc_idx].empty())
                 return cl->Name[loc_idx].c_str();
-        }
-    }
 
     return GetName();
 }

@@ -1638,11 +1638,11 @@ void Aura::TriggerSpell()
 //                    case 38672: break;
                     // Rod of Purification - for quest 10839 (Veil Skith: Darkstone of Terokk)
                     case 38736:
-                        {
-                            if(Unit* caster = GetCaster())
-                                caster->CastSpell(target, trigger_spell_id, true, NULL, this);
-                            return;
-                        }
+                    {
+                        if (Unit* caster = GetCaster())
+                            caster->CastSpell(target, trigger_spell_id, true, NULL, this);
+                        return;
+                    }
 //                    // Tomb Guarding Charging
 //                    case 38751: break;
 //                    // Murmur's Touch
@@ -2098,13 +2098,6 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
     // AT REMOVE
     else
     {
-        if (m_target->GetTypeId() == TYPEID_PLAYER && GetSpellProto()->Effect[0] == 72)
-        {
-            // spells with SpellEffect=72 and aura=4: 6196, 6197, 21171, 21425
-            m_target->ToPlayer()->ClearFarsight();
-            return;
-        }
-
         if ((IsQuestTameSpell(GetId())) && caster && caster->isAlive() && m_target->isAlive())
         {
             uint32 finalSpelId = 0;
@@ -3019,19 +3012,16 @@ void Aura::HandleBindSight(bool apply, bool Real)
     if (!caster || caster->GetTypeId() != TYPEID_PLAYER)
         return;
 
-    if (apply)
-        m_target->AddPlayerToVision(caster->ToPlayer());
-    else
-        m_target->RemovePlayerFromVision(caster->ToPlayer());
+    caster->ToPlayer()->SetViewpoint(m_target, (apply));
 }
 
 void Aura::HandleFarSight(bool apply, bool Real)
 {
-    Unit* caster = GetCaster();
+    /*Unit* caster = GetCaster();
     if (!caster || caster->GetTypeId() != TYPEID_PLAYER)
         return;
 
-    caster->ToPlayer()->SetFarSight(apply ? m_target->GetGUID() : NULL);
+    caster->ToPlayer()->SetFarSight(apply ? m_target->GetGUID() : NULL);*/
 }
 
 void Aura::HandleAuraTrackCreatures(bool apply, bool Real)
@@ -3087,10 +3077,10 @@ void Aura::HandleModPossess(bool apply, bool Real)
         if (m_target->getLevel() > m_modifier.m_amount)
             return;
 
-        m_target->SetCharmedOrPossessedBy(caster, true);
+        m_target->SetCharmedBy(caster, CHARM_TYPE_POSSESS);
     }
     else
-        m_target->RemoveCharmedOrPossessedBy(caster);
+        m_target->RemoveCharmedBy(caster);
 }
 
 void Aura::HandleModPossessPet(bool apply, bool Real)
@@ -3107,11 +3097,11 @@ void Aura::HandleModPossessPet(bool apply, bool Real)
         if (caster->GetPet() != m_target)
             return;
 
-        m_target->SetCharmedOrPossessedBy(caster, true);
+        m_target->SetCharmedBy(caster, CHARM_TYPE_POSSESS);
     }
     else
     {
-        m_target->RemoveCharmedOrPossessedBy(caster);
+        m_target->RemoveCharmedBy(caster);
 
         // Reinitialize the pet bar and make the pet come back to the owner
         caster->ToPlayer()->PetSpellInitialize();
@@ -3135,10 +3125,10 @@ void Aura::HandleModCharm(bool apply, bool Real)
         if (int32(m_target->getLevel()) > m_modifier.m_amount)
             return;
 
-        m_target->SetCharmedOrPossessedBy(caster, false);
+        m_target->SetCharmedBy(caster, CHARM_TYPE_CHARM);
     }
     else
-        m_target->RemoveCharmedOrPossessedBy(caster);
+        m_target->RemoveCharmedBy(caster);
 }
 
 void Aura::HandleModConfuse(bool apply, bool Real)
@@ -3431,7 +3421,7 @@ void Aura::HandleInvisibilityDetect(bool apply, bool Real)
             m_target->m_detectInvisibilityMask |= (1 << m_modifier.m_miscvalue);
     }
     if (Real && m_target->GetTypeId() == TYPEID_PLAYER)
-        m_target->SetToNotify();
+        m_target->UpdateObjectVisibility();
 }
 
 void Aura::HandleAuraModRoot(bool apply, bool Real)
@@ -4406,6 +4396,13 @@ void Aura::HandleAuraModStat(bool apply, bool /*Real*/)
         return;
     }
 
+    if(apply && GetId() == 20007) // Crusader enchant proc: Holy Strength
+    {
+        uint32 lvldiff = m_target->getLevel() - 60;
+        uint32 diff = lvldiff > 0 ? lvldiff*4 : 0;
+        m_modifier.m_amount = GetModifierValue() - diff;
+    }
+
     for (int32 i = STAT_STRENGTH; i < MAX_STATS; i++)
     {
         // -1 or -2 is all stats (misc < -2 checked in function beginning)
@@ -4656,7 +4653,9 @@ void Aura::HandleModPowerRegen(bool apply, bool Real)       // drinking
         // so 17 is rounded amount for 5 sec tick grow ~ 1 range grow in 3 sec
         if (pt == POWER_RAGE)
         {
-            m_target->ModifyPower(pt, m_modifier.m_amount*3/5);
+            if (m_target->isInCombat())
+                m_target->ModifyPower(pt, m_modifier.m_amount*3/5);
+
             m_periodicTimer += 1000;
         }
     }

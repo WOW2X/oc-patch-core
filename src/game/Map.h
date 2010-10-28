@@ -44,13 +44,14 @@ class InstanceData;
 class Group;
 class InstanceSave;
 class WorldObject;
+class Player;
 class CreatureGroup;
 
 //******************************************
 // Map file format defines
 //******************************************
 #define MAP_MAGIC             'SPAM'
-#define MAP_VERSION_MAGIC     '0.1w'
+#define MAP_VERSION_MAGIC     '5.0w'
 #define MAP_AREA_MAGIC        'AERA'
 #define MAP_HEIGHT_MAGIC      'TGHM'
 #define MAP_LIQUID_MAGIC      'QILM'
@@ -266,8 +267,8 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         //function for setting up visibility distance for maps on per-type/per-Id basis
         virtual void InitVisibilityDistance();
 
-        void PlayerRelocation(Player *, float x, float y, float z, float angl);
-        void CreatureRelocation(Creature *creature, float x, float y, float z, float orientation);
+        void PlayerRelocation(Player *, float x, float y, float z, float orientation);
+        void CreatureRelocation(Creature *creature, float x, float y, float z, float ang);
 
         template<class T, class CONTAINER> void Visit(const Cell& cell, TypeContainerVisitor<T, CONTAINER> &visitor);
 
@@ -289,7 +290,7 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         }
 
         time_t GetGridExpiry(void) const { return i_gridExpiry; }
-        uint32 GetId(void) const { return i_id; }
+        uint32 GetId(void) const { return i_mapEntry->MapID; }
 
         static bool ExistMap(uint32 mapid, int gx, int gy);
         static bool ExistVMap(uint32 mapid, int gx, int gy);
@@ -320,17 +321,17 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
 
         uint32 GetAreaId(float x, float y, float z) const
         {
-            return GetAreaId(GetAreaFlag(x,y,z),i_id);
+            return GetAreaId(GetAreaFlag(x,y,z),GetId());
         }
 
         uint32 GetZoneId(float x, float y, float z) const
         {
-            return GetZoneId(GetAreaFlag(x,y,z),i_id);
+            return GetZoneId(GetAreaFlag(x,y,z),GetId());
         }
 
         void MoveAllCreaturesInMoveList();
         void RemoveAllObjectsInRemoveList();
-        void RelocationNotify();
+        virtual void RemoveAllPlayers();
 
         bool CreatureRespawnRelocation(Creature *c);        // used only in MoveAllCreaturesInMoveList and ObjectGridUnloader
 
@@ -358,6 +359,7 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         virtual bool RemoveBones(uint64 guid, float x, float y);
 
         void UpdateObjectVisibility(WorldObject* obj, Cell cell, CellPair cellpair);
+        void UpdateObjectsVisibilityFor(Player* player, Cell cell, CellPair cellpair);
 
         void resetMarkedCells() { marked_cells.reset(); }
         bool isCellMarked(uint32 pCellId) { return marked_cells.test(pCellId); }
@@ -367,8 +369,8 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         uint32 GetPlayersCountExceptGMs() const;
         bool ActiveObjectsNearGrid(uint32 x, uint32 y) const;
 
-        void AddUnitToNotify(Unit* unit);
-        void RemoveUnitFromNotify(int32 slot);
+        void AddWorldObject(WorldObject *obj) { i_worldObjects.insert(obj); }
+        void RemoveWorldObject(WorldObject *obj) { i_worldObjects.erase(obj); }
 
         void SendToPlayers(WorldPacket const* data) const;
 
@@ -393,12 +395,16 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         template<class NOTIFIER> void VisitGrid(const float &x, const float &y, float radius, NOTIFIER &notifier);
         CreatureGroupHolderType CreatureGroupHolder;
 
+        void UpdateIteratorBack(Player *player);
+
+#ifdef MAP_BASED_RAND_GEN
         MTRand mtRand;
         int32 irand(int32 min, int32 max)       { return int32 (mtRand.randInt(max - min)) + min; }
         uint32 urand(uint32 min, uint32 max)    { return mtRand.randInt(max - min) + min; }
         int32 rand32()                          { return mtRand.randInt(); }
         double rand_norm()                      { return mtRand.randExc(); }
         double rand_chance()                    { return mtRand.randExc(100.0); }
+#endif
 
         Creature* GetCreature(uint64 guid);
         GameObject* GetGameObject(uint64 guid);
@@ -451,7 +457,6 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
 
         MapEntry const* i_mapEntry;
         uint8 i_spawnMode;
-        uint32 i_id;
         uint32 i_InstanceId;
         uint32 m_unloadTimer;
         float m_VisibleDistance;
@@ -459,11 +464,15 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         MapRefManager m_mapRefManager;
         MapRefManager::iterator m_mapRefIter;
 
+        int32 m_VisibilityNotifyPeriod;
+
         typedef std::set<WorldObject*> ActiveNonPlayers;
         ActiveNonPlayers m_activeNonPlayers;
         ActiveNonPlayers::iterator m_activeNonPlayersIter;
 
     private:
+
+        time_t i_gridExpiry;
 
         //used for fast base_map (e.g. MapInstanced class object) search for
         //InstanceMaps and BattlegroundMaps...
@@ -473,21 +482,17 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         GridMap *GridMaps[MAX_NUMBER_OF_GRIDS][MAX_NUMBER_OF_GRIDS];
         std::bitset<TOTAL_NUMBER_OF_CELLS_PER_MAP*TOTAL_NUMBER_OF_CELLS_PER_MAP> marked_cells;
 
-        time_t i_gridExpiry;
-        IntervalTimer m_notifyTimer;
+        //these functions used to process player/mob aggro reactions and
+        //visibility calculations. Highly optimized for massive calculations
+        void ProcessRelocationNotifies(const uint32 &diff);
 
-        bool i_lock;
-        std::vector<Unit*> i_unitsToNotifyBacklog;
-        std::vector<Unit*> i_unitsToNotify;
         std::set<WorldObject *> i_objectsToRemove;
         std::map<WorldObject*, bool> i_objectsToSwitch;
+        std::set<WorldObject*> i_worldObjects;
 
         // Type specific code for add/remove to/from grid
         template<class T>
             void AddToGrid(T*, NGridType *, Cell const&);
-
-        template<class T>
-            void AddNotifier(T*);
 
         template<class T>
             void RemoveFromGrid(T*, NGridType *, Cell const&);
@@ -566,7 +571,7 @@ class BattleGroundMap : public Map
         void Remove(Player *, bool);
         bool CanEnter(Player* player);
         void SetUnload();
-        void UnloadAll();
+        void RemoveAllPlayers();
 
         virtual void InitVisibilityDistance();
 };

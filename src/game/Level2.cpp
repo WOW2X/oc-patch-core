@@ -125,7 +125,7 @@ bool ChatHandler::HandleMuteCommand(const char* args)
     LoginDatabase.PExecute("UPDATE account SET mutetime = " UI64FMTD " WHERE id = '%u'",uint64(mutetime), account_id);
 
     if (chr)
-        ChatHandler(chr).PSendSysMessage(LANG_YOUR_CHAT_DISABLED, notspeaktime, mutereasonstr.c_str(), m_session->GetPlayerName());
+        ChatHandler(chr).PSendSysMessage(LANG_YOUR_CHAT_DISABLED, notspeaktime, m_session->GetPlayerName(), mutereasonstr.c_str());
 
     PSendSysMessage(LANG_YOU_DISABLE_CHAT, cname.c_str(), notspeaktime, mutereasonstr.c_str());
 
@@ -3985,7 +3985,7 @@ bool ChatHandler::HandleNpcAddFormationCommand(const char* args)
     FormationInfo *group_member;
 
     group_member                 = new FormationInfo;
-    group_member->follow_angle   = pCreature->GetAngle(chr) - chr->GetOrientation();
+    group_member->follow_angle   = (pCreature->GetAngle(chr) - chr->GetOrientation()) * 180 / M_PI;
     group_member->follow_dist    = sqrtf(pow(chr->GetPositionX() - pCreature->GetPositionX(),int(2))+pow(chr->GetPositionY()-pCreature->GetPositionY(),int(2)));
     group_member->leaderGUID     = leaderGUID;
     group_member->groupAI        = 0;

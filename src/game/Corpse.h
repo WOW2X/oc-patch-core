@@ -48,7 +48,7 @@ enum CorpseFlags
     CORPSE_FLAG_LOOTABLE    = 0x20
 };
 
-class Corpse : public WorldObject
+class Corpse : public WorldObject, public GridObject<Corpse>
 {
     public:
         explicit Corpse(CorpseType type = CORPSE_BONES);
@@ -57,11 +57,10 @@ class Corpse : public WorldObject
         void AddToWorld();
         void RemoveFromWorld();
 
-        bool Create(uint32 guidlow);
+        bool Create(uint32 guidlow, Map *map);
         bool Create(uint32 guidlow, Player *owner, uint32 mapid, float x, float y, float z, float ang);
 
         void SaveToDB();
-        bool LoadFromDB(uint32 guid, QueryResult_AutoPtr result, uint32 InstanceId);
         bool LoadFromDB(uint32 guid, Field *fields);
 
         void DeleteBonesFromWorld();
@@ -91,10 +90,7 @@ class Corpse : public WorldObject
         void TextEmote(int32 textId, uint64 TargetGuid) { MonsterTextEmote(textId,TargetGuid); }
         void Whisper(int32 textId,uint64 receiver) { MonsterWhisper(textId,receiver); }
 
-        GridReference<Corpse> &GetGridRef() { return m_gridRef; }
     private:
-        GridReference<Corpse> m_gridRef;
-
         CorpseType m_type;
         time_t m_time;
         GridPair m_grid;                                    // gride for corpse position for fast search

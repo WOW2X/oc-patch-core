@@ -57,7 +57,10 @@ void MapInstanced::Update(const uint32& t)
     {
         if (i->second->CanUnload(t))
         {
-            DestroyInstance(i);                             // iterator incremented
+            if (!DestroyInstance(i))                             // iterator incremented
+            {
+                //m_unloadTimer
+            }
         }
         else
         {
@@ -117,27 +120,16 @@ void MapInstanced::UnloadAll()
 - create the instance if it's not created already
 - the player is not actually added to the instance (only in InstanceMap::Add)
 */
-Map* MapInstanced::CreateInstance(const uint32 mapId, Player * player)
+Map* MapInstanced::CreateInstance(const uint32 mapId, Player * player, uint32 instanceId)
 {
-    uint32 instanceId = player->GetInstanceId();
-
     if (instanceId)
         if (Map *map = _FindMap(instanceId))
             return map;
 
     if (IsBattleGroundOrArena())
     {
-        instanceId = player->GetBattleGroundId();
-
-        if (instanceId)
-        {
-            if (Map *map = _FindMap(instanceId))
-                return map;
-            else
-                return CreateBattleGround(instanceId);
-        }
-        else
-            return NULL;
+        assert(player->GetBattleGroundId());
+        return CreateBattleGround(player->GetBattleGroundId());
     }
 
     if (InstanceSave *pSave = player->GetInstanceSave(GetId()))
@@ -213,16 +205,16 @@ BattleGroundMap* MapInstanced::CreateBattleGround(uint32 InstanceId)
     return map;
 }
 
-void MapInstanced::DestroyInstance(uint32 InstanceId)
-{
-    InstancedMaps::iterator itr = m_InstancedMaps.find(InstanceId);
-    if (itr != m_InstancedMaps.end())
-        DestroyInstance(itr);
-}
-
 // increments the iterator after erase
-void MapInstanced::DestroyInstance(InstancedMaps::iterator &itr)
+bool MapInstanced::DestroyInstance(InstancedMaps::iterator &itr)
 {
+    itr->second->RemoveAllPlayers();
+    if (itr->second->HavePlayers())
+    {
+        ++itr;
+        return false;
+    }
+
     itr->second->UnloadAll();
     // should only unload VMaps if this is the last instance and grid unloading is enabled
     if (m_InstancedMaps.size() <= 1 && sWorld.getConfig(CONFIG_GRID_UNLOAD))
@@ -235,6 +227,7 @@ void MapInstanced::DestroyInstance(InstancedMaps::iterator &itr)
     // erase map
     delete itr->second;
     m_InstancedMaps.erase(itr++);
+    return true;
 }
 
 bool MapInstanced::CanEnter(Player * /*player*/)

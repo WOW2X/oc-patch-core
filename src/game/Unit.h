@@ -632,12 +632,6 @@ enum SplineFlags
     SPLINEFLAG_FLYING         = 0x00000200,
 };
 
-struct Position
-{
-    Position() : x(0.0f), y(0.0f), z(0.0f), o(0.0f) {}
-    float x, y, z, o;
-};
-
 class MovementInfo
 {
     public:
@@ -661,26 +655,26 @@ class MovementInfo
         void SetTransportData(uint64 guid, float x, float y, float z, float o, uint32 time)
         {
             t_guid = guid;
-            t_pos.x = x;
-            t_pos.y = y;
-            t_pos.z = z;
-            t_pos.o = o;
+            t_pos.m_positionX = x;
+            t_pos.m_positionY = y;
+            t_pos.m_positionZ = z;
+            t_pos.m_orientation = o;
             t_time = time;
         }
         void ClearTransportData()
         {
             t_guid = 0;
-            t_pos.x = 0.0f;
-            t_pos.y = 0.0f;
-            t_pos.z = 0.0f;
-            t_pos.o = 0.0f;
+            t_pos.m_positionX = 0.0f;
+            t_pos.m_positionY = 0.0f;
+            t_pos.m_positionZ = 0.0f;
+            t_pos.m_orientation = 0.0f;
             t_time = 0;
         }
         uint64 const& GetTransportGuid() const { return t_guid; }
         Position const *GetTransportPos() const { return &t_pos; }
         uint32 GetTransportTime() const { return t_time; }
         uint32 GetFallTime() const { return fallTime; }
-        void ChangePosition(float x, float y, float z, float o) { pos.x = x; pos.y = y; pos.z = z; pos.o = o; }
+        void ChangePosition(float x, float y, float z, float o) { pos.m_positionX = x; pos.m_positionY = y; pos.m_positionZ = z; pos.m_orientation = o; }
         void UpdateTime(uint32 _time) { time = _time; }
 
     //private:
@@ -849,6 +843,12 @@ struct CharmSpellEntry
 };
 
 typedef std::list<Player*> SharedVisionList;
+
+enum CharmType
+{
+    CHARM_TYPE_CHARM,
+    CHARM_TYPE_POSSESS,
+};
 
 struct CharmInfo
 {
@@ -1269,9 +1269,12 @@ class Unit : public WorldObject
 
         void SetPet(Pet* pet);
         void SetCharm(Unit* pet);
-        void SetCharmedOrPossessedBy(Unit* charmer, bool possess);
-        void RemoveCharmedOrPossessedBy(Unit* charmer);
+        void SetCharmedBy(Unit* charmer, CharmType type);
+        void RemoveCharmedBy(Unit* charmer);
         void RestoreFaction();
+
+        Unit* GetFirstControlled() const;
+        void RemoveAllControlled();
 
         bool isCharmed() const { return GetCharmerGUID() != 0; }
         bool isPossessed() const { return hasUnitState(UNIT_STAT_POSSESSED); }
@@ -1423,7 +1426,6 @@ class Unit : public WorldObject
                 SetOrientation(GetAngle(target));
         }
         bool isInBack(Unit const* target, float distance, float arc = M_PI) const;
-        bool isInLine(Unit const* target, float distance) const;
 
         // Visibility system
         UnitVisibility GetVisibility() const { return m_Visibility; }
@@ -1435,6 +1437,7 @@ class Unit : public WorldObject
         bool isVisibleForOrDetect(Unit const* u, bool detect, bool inVisibleList = false, bool is3dDistance = true) const;
         bool canDetectInvisibilityOf(Unit const* u) const;
         bool canDetectStealthOf(Unit const* u, float distance) const;
+        void UpdateObjectVisibility(bool forced = true);
 
         // virtual functions for all world objects types
         bool isVisibleForInState(Player const* u, bool inVisibleList) const;
@@ -1605,12 +1608,6 @@ class Unit : public WorldObject
         PetAuraSet m_petAuras;
         void AddPetAura(PetAura const* petSpell);
         void RemovePetAura(PetAura const* petSpell);
-
-        // relocation notification
-        void SetToNotify();
-        bool m_Notified;
-        int32 m_NotifyListPos;
-        float oldX, oldY;
 
         void SetReducedThreatPercent(uint32 pct, uint64 guid)
         {

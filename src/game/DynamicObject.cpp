@@ -58,22 +58,34 @@ void DynamicObject::RemoveFromWorld()
     ///- Remove the dynamicObject from the accessor
     if (IsInWorld())
     {
+        if (m_isWorldObject)
+        {
+            if (Unit *caster = GetCaster())
+            {
+                if (caster->GetTypeId() == TYPEID_PLAYER)
+                    ((Player*)caster)->SetViewpoint(this, false);
+            }
+            else
+            {
+                sLog.outCrash("DynamicObject::RemoveFromWorld cannot find viewpoint owner");
+            }
+        }
         WorldObject::RemoveFromWorld();
         ObjectAccessor::Instance().RemoveObject(this);
     }
 }
 
-bool DynamicObject::Create(uint32 guidlow, Unit *caster, uint32 spellId, uint32 effIndex, float x, float y, float z, int32 duration, float radius)
+bool DynamicObject::Create(uint32 guidlow, Unit *caster, uint32 spellId, uint32 effIndex, const Position &pos, int32 duration, float radius)
 {
-    WorldObject::_Create(guidlow, HIGHGUID_DYNAMICOBJECT);
     SetMap(caster->GetMap());
-    Relocate(x,y,z,0);
-
+    Relocate(pos);
     if (!IsPositionValid())
     {
         sLog.outError("DynamicObject (spell %u eff %u) not created. Suggested coordinates isn't valid (X: %f Y: %f)",spellId,effIndex,GetPositionX(),GetPositionY());
         return false;
     }
+
+    WorldObject::_Create(guidlow, HIGHGUID_DYNAMICOBJECT);
 
     SetEntry(spellId);
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1);
@@ -87,9 +99,9 @@ bool DynamicObject::Create(uint32 guidlow, Unit *caster, uint32 spellId, uint32 
     SetUInt32Value(DYNAMICOBJECT_BYTES, 0x00000001);
     SetUInt32Value(DYNAMICOBJECT_SPELLID, spellId);
     SetFloatValue(DYNAMICOBJECT_RADIUS, radius);
-    SetFloatValue(DYNAMICOBJECT_POS_X, x);
-    SetFloatValue(DYNAMICOBJECT_POS_Y, y);
-    SetFloatValue(DYNAMICOBJECT_POS_Z, z);
+    SetFloatValue(DYNAMICOBJECT_POS_X, pos.m_positionX);
+    SetFloatValue(DYNAMICOBJECT_POS_Y, pos.m_positionY);
+    SetFloatValue(DYNAMICOBJECT_POS_Z, pos.m_positionZ);
     SetUInt32Value(DYNAMICOBJECT_CASTTIME, getMSTime());
 
     m_aliveDuration = duration;
@@ -98,13 +110,17 @@ bool DynamicObject::Create(uint32 guidlow, Unit *caster, uint32 spellId, uint32 
     m_spellId = spellId;
     m_casterGuid = caster->GetGUID();
     m_updateTimer = 0;
+
+    if (m_effIndex == 4)
+        m_isWorldObject = true;
+
     return true;
 }
 
 Unit* DynamicObject::GetCaster() const
 {
     // can be not found in some cases
-    return ObjectAccessor::GetUnit(*this,m_casterGuid);
+    return ObjectAccessor::GetUnit(*this, GetCasterGUID());
 }
 
 void DynamicObject::Update(uint32 p_time)
@@ -144,6 +160,7 @@ void DynamicObject::Update(uint32 p_time)
 void DynamicObject::Delete()
 {
     SendObjectDeSpawnAnim(GetGUID());
+    RemoveFromWorld();
     AddObjectToRemoveList();
 }
 
@@ -158,7 +175,5 @@ void DynamicObject::Delay(int32 delaytime)
 bool DynamicObject::isVisibleForInState(Player const* u, bool inVisibleList) const
 {
     return IsInWorld() && u->IsInWorld()
-        && (IsWithinDistInMap(u, World::GetMaxVisibleDistanceForObject() + (inVisibleList ? World::GetVisibleObjectGreyDistance() : 0.0f), false)
-        || GetCasterGUID() == u->GetGUID());
+        && (IsWithinDistInMap(u->m_seer, World::GetMaxVisibleDistanceForObject() + (inVisibleList ? World::GetVisibleObjectGreyDistance() : 0.0f), false));
 }
-

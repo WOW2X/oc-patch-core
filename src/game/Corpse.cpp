@@ -32,6 +32,7 @@
 #include "World.h"
 
 Corpse::Corpse(CorpseType type) : WorldObject()
+, m_type(type)
 {
     m_objectType |= TYPEMASK_CORPSE;
     m_objectTypeId = TYPEID_CORPSE;
@@ -40,11 +41,12 @@ Corpse::Corpse(CorpseType type) : WorldObject()
 
     m_valuesCount = CORPSE_END;
 
-    m_type = type;
-
     m_time = time(NULL);
 
     lootForBody = false;
+
+    if (type != CORPSE_BONES)
+        m_isWorldObject = true;
 }
 
 Corpse::~Corpse()
@@ -69,8 +71,9 @@ void Corpse::RemoveFromWorld()
     Object::RemoveFromWorld();
 }
 
-bool Corpse::Create(uint32 guidlow)
+bool Corpse::Create(uint32 guidlow, Map *map)
 {
+    SetMap(map);
     Object::_Create(guidlow, 0, HIGHGUID_CORPSE);
     return true;
 }
@@ -79,12 +82,7 @@ bool Corpse::Create(uint32 guidlow, Player *owner, uint32 mapid, float x, float 
 {
     ASSERT(owner);
 
-    WorldObject::_Create(guidlow, HIGHGUID_CORPSE);
     Relocate(x,y,z,ang);
-
-    //we need to assign owner's map for corpse
-    //in other way we will get a crash in Corpse::SaveToDB()
-    SetMap(owner->GetMap());
 
     if (!IsPositionValid())
     {
@@ -92,6 +90,12 @@ bool Corpse::Create(uint32 guidlow, Player *owner, uint32 mapid, float x, float 
             guidlow, owner->GetName(), x, y);
         return false;
     }
+
+    //we need to assign owner's map for corpse
+    //in other way we will get a crash in Corpse::SaveToDB()
+    SetMap(owner->GetMap());
+
+    WorldObject::_Create(guidlow, HIGHGUID_CORPSE);
 
     SetFloatValue(OBJECT_FIELD_SCALE_X, 1);
     SetFloatValue(CORPSE_FIELD_POS_X, x);
@@ -146,26 +150,6 @@ void Corpse::DeleteFromDB()
         CharacterDatabase.PExecute("DELETE FROM corpse WHERE player = '%d' AND corpse_type <> '0'",  GUID_LOPART(GetOwnerGUID()));
 }
 
-bool Corpse::LoadFromDB(uint32 guid, QueryResult_AutoPtr result, uint32 InstanceId)
-{
-    if (result == QueryResult_AutoPtr(NULL))
-        //                                        0          1          2          3           4   5    6    7           8
-        result = CharacterDatabase.PQuery("SELECT position_x,position_y,position_z,orientation,map,data,time,corpse_type,instance FROM corpse WHERE guid = '%u'",guid);
-
-    if (! result)
-    {
-        sLog.outError("Corpse (GUID: %u) not found in table corpse, can't load. ",guid);
-        return false;
-    }
-
-    Field *fields = result->Fetch();
-
-    if (!LoadFromDB(guid,fields))
-        return false;
-
-    return true;
-}
-
 bool Corpse::LoadFromDB(uint32 guid, Field *fields)
 {
     //                                          0          1          2          3           4   5    6    7           8
@@ -190,6 +174,10 @@ bool Corpse::LoadFromDB(uint32 guid, Field *fields)
         sLog.outError("Corpse (guidlow %d, owner %d) have wrong corpse type, not load.",GetGUIDLow(),GUID_LOPART(GetOwnerGUID()));
         return false;
     }
+
+    if (m_type != CORPSE_BONES)
+        m_isWorldObject = true;
+
     uint32 instanceid  = fields[8].GetUInt32();
 
     // overwrite possible wrong/corrupted guid
@@ -208,12 +196,11 @@ bool Corpse::LoadFromDB(uint32 guid, Field *fields)
     }
 
     m_grid = Oregon::ComputeGridPair(GetPositionX(), GetPositionY());
-
     return true;
 }
 
 bool Corpse::isVisibleForInState(Player const* u, bool inVisibleList) const
 {
-    return IsInWorld() && u->IsInWorld() && IsWithinDistInMap(u, World::GetMaxVisibleDistanceForObject() + (inVisibleList ? World::GetVisibleObjectGreyDistance() : 0.0f), false);
+    return IsInWorld() && u->IsInWorld() && IsWithinDistInMap(u->m_seer, World::GetMaxVisibleDistanceForObject() + (inVisibleList ? World::GetVisibleObjectGreyDistance() : 0.0f), false);
 }
 

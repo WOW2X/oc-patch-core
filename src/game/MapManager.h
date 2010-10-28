@@ -40,12 +40,9 @@ class MapManager : public Oregon::Singleton<MapManager, Oregon::ClassLevelLockab
 
     public:
 
-        Map* CreateMap(uint32, const WorldObject* obj);
+        Map* CreateMap(uint32, const WorldObject* obj, uint32 instanceId);
         Map const* CreateBaseMap(uint32 id) const { return const_cast<MapManager*>(this)->_createBaseMap(id); }
         Map* FindMap(uint32 mapid, uint32 instanceId = 0) const;
-
-        // only const version for outer users
-        void DeleteInstance(uint32 mapid, uint32 instanceId);
 
         uint16 GetAreaFlag(uint32 mapid, float x, float y, float z) const
         {
@@ -98,7 +95,7 @@ class MapManager : public Oregon::Singleton<MapManager, Oregon::ClassLevelLockab
 
         static bool IsValidMapCoord(WorldLocation const& loc)
         {
-            return IsValidMapCoord(loc.mapid,loc.coord_x,loc.coord_y,loc.coord_z,loc.orientation);
+            return IsValidMapCoord(loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ(), loc.GetOrientation());
         }
 
         void DoDelayedMovesAndRemoves();

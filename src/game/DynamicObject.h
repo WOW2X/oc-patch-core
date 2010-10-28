@@ -26,7 +26,7 @@
 class Unit;
 struct SpellEntry;
 
-class DynamicObject : public WorldObject
+class DynamicObject : public WorldObject, public GridObject<DynamicObject>
 {
     public:
         typedef std::set<Unit*> AffectedSet;
@@ -35,7 +35,7 @@ class DynamicObject : public WorldObject
         void AddToWorld();
         void RemoveFromWorld();
 
-        bool Create(uint32 guidlow, Unit *caster, uint32 spellId, uint32 effIndex, float x, float y, float z, int32 duration, float radius);
+        bool Create(uint32 guidlow, Unit *caster, uint32 spellId, uint32 effIndex, const Position &pos, int32 duration, float radius);
         void Update(uint32 p_time);
         void Delete();
         uint32 GetSpellId() const { return m_spellId; }
@@ -59,7 +59,6 @@ class DynamicObject : public WorldObject
         void TextEmote(int32 textId, uint64 TargetGuid) { MonsterTextEmote(textId,TargetGuid); }
         void Whisper(int32 textId,uint64 receiver) { MonsterWhisper(textId,receiver); }
 
-        GridReference<DynamicObject> &GetGridRef() { return m_gridRef; }
     protected:
         uint64 m_casterGuid;
         uint32 m_spellId;
@@ -69,8 +68,5 @@ class DynamicObject : public WorldObject
         time_t m_nextThinkTime;
         float m_radius;
         AffectedSet m_affected;
-    private:
-        GridReference<DynamicObject> m_gridRef;
 };
 #endif
-

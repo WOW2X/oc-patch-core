@@ -817,7 +817,7 @@ class PlayerTaxi
         std::deque<uint32> m_TaxiDestinations;
 };
 
-class Player : public Unit
+class Player : public Unit, public GridObject<Player>
 {
     friend class WorldSession;
     friend void Item::AddToUpdateQueueOf(Player *player);
@@ -834,21 +834,11 @@ class Player : public Unit
         void AddToWorld();
         void RemoveFromWorld();
 
-        void SetViewport(uint64 guid, bool movable);
-        void StopCastingCharm() { Uncharm(); }
-        void StopCastingBindSight();
-        WorldObject* GetFarsightTarget() const;
-        void ClearFarsight();
-        void SetFarsightTarget(WorldObject* target);
-        // Controls if vision is currently on farsight object, updated in FAR_SIGHT opcode
-        void SetFarsightVision(bool apply) { m_farsightVision = apply; }
-        bool HasFarsightVision() const { return m_farsightVision; }
-
         bool TeleportTo(uint32 mapid, float x, float y, float z, float orientation, uint32 options = 0);
 
         bool TeleportTo(WorldLocation const &loc, uint32 options = 0)
         {
-            return TeleportTo(loc.mapid, loc.coord_x, loc.coord_y, loc.coord_z, loc.orientation, options);
+            return TeleportTo(loc.GetMapId(), loc.GetPositionX(), loc.GetPositionY(), loc.GetPositionZ(), loc.GetOrientation(), options);
         }
 
         void SetSummonPoint(uint32 mapid, float x, float y, float z)
@@ -1353,6 +1343,7 @@ class Player : public Unit
         void PetSpellInitialize();
         void CharmSpellInitialize();
         void PossessSpellInitialize();
+        void SendRemoveControlBar();
         bool HasSpell(uint32 spell) const;
         TrainerSpellState GetTrainerSpellState(TrainerSpell const* trainer_spell) const;
         bool IsSpellFitByClassAndRace(uint32 spell_id) const;
@@ -1591,6 +1582,8 @@ class Player : public Unit
         void SendResetFailedNotify(uint32 mapid);
 
         bool SetPosition(float x, float y, float z, float orientation, bool teleport = false);
+        bool SetPosition(const Position &pos, bool teleport = false) { return SetPosition(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation(), teleport); }
+
         void UpdateUnderwaterState(Map * m, float x, float y, float z);
 
         void SendMessageToSet(WorldPacket *data, bool self, bool to_possessor = true);// overwrite Object::SendMessageToSet
@@ -1929,6 +1922,7 @@ class Player : public Unit
         MovementInfo m_movementInfo;
         uint32 m_lastFallTime;
         float  m_lastFallZ;
+        WorldObject *m_seer;
         void SetFallInformation(uint32 time, float z)
         {
             m_lastFallTime = time;
@@ -1948,17 +1942,20 @@ class Player : public Unit
 
         void SetClientControl(Unit* target, uint8 allowMove);
 
-        uint64 GetFarSight() const { return GetUInt64Value(PLAYER_FARSIGHT); }
-        void SetFarSight(uint64 guid) { SetUInt64Value(PLAYER_FARSIGHT, guid); }
+        void SetSeer(WorldObject *target) { m_seer = target; }
+        void SetViewpoint(WorldObject *target, bool apply);
+        WorldObject* GetViewpoint() const;
+        void StopCastingCharm() { Uncharm(); }
+        void StopCastingBindSight();
 
         // Transports
         Transport * GetTransport() const { return m_transport; }
         void SetTransport(Transport * t) { m_transport = t; }
 
-        float GetTransOffsetX() const { return m_movementInfo.GetTransportPos()->x; }
-        float GetTransOffsetY() const { return m_movementInfo.GetTransportPos()->y; }
-        float GetTransOffsetZ() const { return m_movementInfo.GetTransportPos()->z; }
-        float GetTransOffsetO() const { return m_movementInfo.GetTransportPos()->o; }
+        float GetTransOffsetX() const { return m_movementInfo.GetTransportPos()->m_positionX; }
+        float GetTransOffsetY() const { return m_movementInfo.GetTransportPos()->m_positionY; }
+        float GetTransOffsetZ() const { return m_movementInfo.GetTransportPos()->m_positionZ; }
+        float GetTransOffsetO() const { return m_movementInfo.GetTransportPos()->m_orientation; }
         uint32 GetTransTime() const { return m_movementInfo.GetTransportTime(); }
 
         uint32 GetSaveTimer() const { return m_nextSave; }
@@ -1979,7 +1976,7 @@ class Player : public Unit
         float m_homebindY;
         float m_homebindZ;
         void SetHomebindToLocation(WorldLocation const& loc, uint32 area_id);
-        void RelocateToHomebind() { SetLocationMapId(m_homebindMapId); Relocate(m_homebindX,m_homebindY,m_homebindZ); }
+        void RelocateToHomebind(uint32 & newMap) { newMap = m_homebindMapId; Relocate(m_homebindX,m_homebindY,m_homebindZ); }
         bool TeleportToHomebind(uint32 options = 0) { return TeleportTo(m_homebindMapId, m_homebindX, m_homebindY, m_homebindZ, GetOrientation(), options); }
 
         // ChatSpy
@@ -1996,11 +1993,13 @@ class Player : public Unit
         bool IsVisibleInGridForPlayer(Player const* pl) const;
         bool IsVisibleGloballyFor(Player* pl) const;
 
-        void UpdateVisibilityOf(WorldObject* target);
         void SendInitialVisiblePackets(Unit* target);
+        void UpdateObjectVisibility(bool forced = true);
+        void UpdateVisibilityForPlayer();
+        void UpdateVisibilityOf(WorldObject* target);
 
         template<class T>
-            void UpdateVisibilityOf(T* target, UpdateData& data, std::set<WorldObject*>& visibleNow);
+            void UpdateVisibilityOf(T* target, UpdateData& data, std::set<Unit*>& visibleNow);
 
         // Stealth detection system
         uint32 m_DetectInvTimer;
@@ -2064,6 +2063,10 @@ class Player : public Unit
 
         GridReference<Player> &GetGridRef() { return m_gridRef; }
         MapReference &GetMapRef() { return m_mapRef; }
+
+        // Set map to player and add reference
+        void SetMap(Map * map);
+        void ResetMap();
 
         bool isAllowedToLoot(const Creature* creature);
 
@@ -2306,8 +2309,6 @@ class Player : public Unit
         float  m_summon_x;
         float  m_summon_y;
         float  m_summon_z;
-
-        bool m_farsightVision;
 
         DeclinedName *m_declinedname;
     private:

@@ -728,9 +728,7 @@ void WorldSession::HandleCorpseReclaimOpcode(WorldPacket &recv_data)
     if (corpse->GetGhostTime() + GetPlayer()->GetCorpseReclaimDelay(corpse->GetType() == CORPSE_RESURRECTABLE_PVP) > time(NULL))
         return;
 
-    float dist = corpse->GetDistance2d(GetPlayer());
-    sLog.outDebug("Corpse 2D Distance: \t%f",dist);
-    if (dist > CORPSE_RECLAIM_RADIUS)
+    if (!corpse->IsWithinDistInMap(GetPlayer(), CORPSE_RECLAIM_RADIUS, true))
         return;
 
     // resurrect
@@ -738,8 +736,6 @@ void WorldSession::HandleCorpseReclaimOpcode(WorldPacket &recv_data)
 
     // spawn bones
     GetPlayer()->SpawnCorpseBones();
-
-    GetPlayer()->SaveToDB();
 }
 
 void WorldSession::HandleResurrectResponseOpcode(WorldPacket & recv_data)
@@ -764,7 +760,6 @@ void WorldSession::HandleResurrectResponseOpcode(WorldPacket & recv_data)
         return;
 
     GetPlayer()->ResurectUsingRequestData();
-    GetPlayer()->SaveToDB();
 }
 
 void WorldSession::HandleAreaTriggerOpcode(WorldPacket & recv_data)
@@ -1314,31 +1309,25 @@ void WorldSession::HandleFarSightOpcode(WorldPacket & recv_data)
     uint8 apply;
     recv_data >> apply;
 
-    CellPair pair;
-
     switch(apply)
     {
         case 0:
-            _player->SetFarsightVision(false);
-            pair = Oregon::ComputeCellPair(_player->GetPositionX(), _player->GetPositionY());
-            sLog.outDebug("Player %u set vision to himself", _player->GetGUIDLow());
+            sLog.outDebug("Player %u set vision to self", _player->GetGUIDLow());
+            _player->SetSeer(_player);
             break;
         case 1:
-            _player->SetFarsightVision(true);
-            if (WorldObject* obj = _player->GetFarsightTarget())
-                pair = Oregon::ComputeCellPair(obj->GetPositionX(), obj->GetPositionY());
+            sLog.outDebug("Added FarSight " I64FMT " to player %u", _player->GetUInt64Value(PLAYER_FARSIGHT), _player->GetGUIDLow());
+            if(WorldObject *target = _player->GetViewpoint())
+                _player->SetSeer(target);
             else
-                return;
-            sLog.outDebug("Added FarSight " I64FMT " to player %u", _player->GetFarSight(), _player->GetGUIDLow());
+                sLog.outError("Player %s requests non-existing seer", _player->GetName());
             break;
         default:
             sLog.outDebug("Unhandled mode in CMSG_FAR_SIGHT: %u", apply);
             return;
     }
-    // Update visibility after vision change
-    //Cell cell(pair);
-    //GetPlayer()->GetMap()->UpdateObjectsVisibilityFor(_player, cell, pair);
-    GetPlayer()->SetToNotify();
+
+    GetPlayer()->UpdateVisibilityForPlayer();
 }
 
 void WorldSession::HandleChooseTitleOpcode(WorldPacket & recv_data)
