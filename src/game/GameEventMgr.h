@@ -18,8 +18,8 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
 
-#ifndef OREGON_GAMEEVENT_H
-#define OREGON_GAMEEVENT_H
+#ifndef OREGON_GAMEEVENT_MGR_H
+#define OREGON_GAMEEVENT_MGR_H
 
 #include "Platform/Define.h"
 #include "Creature.h"
@@ -85,11 +85,11 @@ struct NPCVendorEntry
 };
 
 class Player;
-class GameEvent
+class GameEventMgr
 {
     public:
-        GameEvent();
-        ~GameEvent() {};
+        GameEventMgr();
+        ~GameEventMgr() {};
         typedef std::set<uint16> ActiveEvents;
         typedef std::vector<GameEventData> GameEventDataMap;
         ActiveEvents const& GetActiveEventList() const { return m_ActiveEvents; }
@@ -126,7 +126,9 @@ class GameEvent
         bool hasGameObjectActiveEventExcept(uint32 go_guid, uint16 event_id);
     protected:
         typedef std::list<uint32> GuidList;
+        typedef std::list<uint16> IdList;
         typedef std::vector<GuidList> GameEventGuidMap;
+        typedef std::vector<IdList> GameEventIdMap;
         typedef std::pair<uint32, ModelEquip> ModelEquipPair;
         typedef std::list<ModelEquipPair> ModelEquipList;
         typedef std::vector<ModelEquipList> GameEventModelEquipMap;
@@ -148,6 +150,7 @@ class GameEvent
         GameEventModelEquipMap mGameEventModelEquip;
         GameEventGuidMap  mGameEventCreatureGuids;
         GameEventGuidMap  mGameEventGameobjectGuids;
+        GameEventIdMap    mGameEventPoolIds;
         GameEventDataMap  mGameEvent;
         GameEventBitmask  mGameEventBattleGroundHolidays;
         QuestIdToEventConditionMap mQuestToEventConditions;
@@ -157,7 +160,7 @@ class GameEvent
         bool isSystemInit;
 };
 
-#define gameeventmgr Oregon::Singleton<GameEvent>::Instance()
+#define gameeventmgr Oregon::Singleton<GameEventMgr>::Instance()
 #endif
 
 bool isGameEventActive(uint16 event_id);

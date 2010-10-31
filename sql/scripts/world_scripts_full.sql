@@ -41,6 +41,8 @@ UPDATE `gameobject_template` SET `ScriptName`='go_ethereum_prison' WHERE `entry`
 UPDATE `gameobject_template` SET `scriptname`='go_sacred_fire_of_life' WHERE `entry`=175944;
 UPDATE `gameobject_template` SET `scriptname`='go_skull_pile' WHERE `entry`=185913;
 UPDATE `gameobject_template` SET `ScriptName`='go_iruxos' WHERE `entry`=176581;
+UPDATE `gameobject_template` SET `ScriptName`='go_veil_skith_cage' WHERE `entry` IN (185202,185203,185204,185205);
+
 
 /* GUARD */
 UPDATE `creature_template` SET `ScriptName`='guard_azuremyst' WHERE `entry`=18038;
@@ -111,6 +113,7 @@ UPDATE `creature_template` SET `ScriptName`='npc_tonk_mine' WHERE `entry`=15368;
 UPDATE `creature_template` SET `ScriptName`='npc_winter_reveler' WHERE `entry`=15760;
 UPDATE `creature_template` SET `ScriptName`='npc_brewfest_reveler' WHERE `entry`=24484;
 UPDATE `creature_template` SET `ScriptName`='npc_snake_trap_serpents' WHERE `entry` IN (19921,19833);
+UPDATE `creature_template` SET `ScriptName`='npc_taxi' WHERE `entry` IN (17435,18725,19401,19409,20162,20235,20903,23413,23415,23704,25059,25236);
 UPDATE `creature_template` SET `Scriptname`='npc_innkeeper' WHERE `npcflag`& 65536 AND ScriptName='';
 
 /*  */
@@ -427,6 +430,7 @@ UPDATE `creature_template` SET `ScriptName`='npc_aged_dying_ancient_kodo' WHERE 
 UPDATE `creature_template` SET `ScriptName`='npc_aged_dying_ancient_kodo' WHERE `entry`='4701';
 UPDATE `creature_template` SET `ScriptName`='npc_aged_dying_ancient_kodo' WHERE `entry`='4702';
 UPDATE `creature_template` SET `ScriptName`='npc_aged_dying_ancient_kodo' WHERE `entry`='11627';
+UPDATE `creature_template` SET `ScriptName`='npc_melizza_brimbuzzle' WHERE `entry`='12277';
 
 /* DIRE MAUL */
 
@@ -846,6 +850,11 @@ UPDATE `creature_template` SET `ScriptName`='mob_restless_soul' WHERE `entry`=11
 UPDATE `creature_template` SET `ScriptName`='mob_freed_soul' WHERE `entry`=11136;
 
 /* SUNKEN TEMPLE */
+UPDATE `instance_template` SET `script`='instance_sunken_temple' WHERE `map`=109;
+UPDATE `gameobject_template` SET `ScriptName`='go_atalai_statue' WHERE `entry` IN (148830,148831,148832,148833,148834,148835);
+UPDATE `creature_template` SET `ScriptName`='boss_twilight_corrupter' WHERE `entry`=15625;
+DELETE FROM `areatrigger_scripts` WHERE `entry`=4016;
+INSERT INTO `areatrigger_scripts` (`entry`,`ScriptName`) VALUES (4016,'at_malfurion_stormrage');
 
 /* SUNWELL PLATEAU */
 UPDATE `instance_template` SET `script`='instance_sunwell_plateau' WHERE `map`=580;
@@ -975,6 +984,14 @@ UPDATE `creature_template` SET `ScriptName`='npc_floon' WHERE `entry`=18588;
 UPDATE `creature_template` SET `ScriptName`='npc_skyguard_handler_irena' WHERE `entry`=23413;
 UPDATE `creature_template` SET `ScriptName`='npc_isla_starmane' WHERE `entry`=18760;
 UPDATE `creature_template` SET `ScriptName`='mob_unkor_the_ruthless' WHERE `entry`=18262;
+UPDATE `creature_template` SET `ScriptName`='npc_letoll' WHERE `entry`=22458;
+UPDATE `creature_template` SET `ScriptName`='npc_mana_bomb_exp_trigger' WHERE `entry`=20767;
+UPDATE `gameobject_template` SET `ScriptName`='go_mana_bomb' WHERE `entry`=184725;
+UPDATE `creature_template` SET `ScriptName`='npc_akuno' WHERE `entry`=22377;
+UPDATE `creature_template` SET `ScriptName`='npc_slim' WHERE `entry`=19679;
+UPDATE `creature_template` SET `ScriptName`='npc_captive_child' WHERE `entry`=22314;
+UPDATE `creature_template` SET `ScriptName`='npc_skywing' WHERE `entry`=22424;
+
 
 /* THOUSAND NEEDLES */
 UPDATE `creature_template` SET `ScriptName`='npc_kanati' WHERE `entry`=10638;

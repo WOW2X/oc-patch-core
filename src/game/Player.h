@@ -2002,7 +2002,6 @@ class Player : public Unit, public GridObject<Player>
             void UpdateVisibilityOf(T* target, UpdateData& data, std::set<Unit*>& visibleNow);
 
         // Stealth detection system
-        uint32 m_DetectInvTimer;
         void HandleStealthedUnitsDetection();
 
         uint8 m_forced_speed_changes[MAX_MOVE_TYPE];
@@ -2061,7 +2060,6 @@ class Player : public Unit, public GridObject<Player>
         Player* GetNextRandomRaidMember(float radius);
         PartyResult CanUninviteFromGroup() const;
 
-        GridReference<Player> &GetGridRef() { return m_gridRef; }
         MapReference &GetMapRef() { return m_mapRef; }
 
         // Set map to player and add reference
@@ -2344,7 +2342,6 @@ class Player : public Unit, public GridObject<Player>
                 m_DelayedOperations |= operation;
         }
 
-        GridReference<Player> m_gridRef;
         MapReference m_mapRef;
 
         void UpdateCharmedAI();
@@ -2365,6 +2362,8 @@ class Player : public Unit, public GridObject<Player>
         bool m_bCanDelayTeleport;
         bool m_bHasDelayedTeleport;
         bool m_bHasBeenAliveAtDelayedTeleport;
+
+        uint32 m_DetectInvTimer;
 
         // Temporary removed pet cache
         uint32 m_temporaryUnsummonedPetNumber;
