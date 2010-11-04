@@ -468,6 +468,14 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1000480,'You will not escape us so easily!',0,0,0,0,'akuno SAY_AKU_AMBUSH_B_REPLY'),
 (-1000481,'I can find my way from here. My friend Mekeda will reward you for your kind actions.',0,0,0,0,'akuno SAY_AKU_COMPLETE'),
 
+(-1000482,'Look out!',0,0,0,0,'maghar captive SAY_MAG_START'),
+(-1000483,'Don\'t let them escape! Kill the strong one first!',0,0,0,0,'maghar captive SAY_MAG_NO_ESCAPE'),
+(-1000484,'More of them coming! Watch out!',0,0,0,0,'maghar captive SAY_MAG_MORE'),
+(-1000485,'Where do you think you\'re going? Kill them all!',0,0,0,0,'maghar captive SAY_MAG_MORE_REPLY'),
+(-1000486,'Ride the lightning, filth!',0,0,0,0,'maghar captive SAY_MAG_LIGHTNING'),
+(-1000487,'FROST SHOCK!!!',0,0,0,0,'maghar captive SAY_MAG_SHOCK'),
+(-1000488,'It is best that we split up now, in case they send more after us. Hopefully one of us will make it back to Garrosh. Farewell stranger.',0,0,0,0,'maghar captive SAY_MAG_COMPLETE'),
+
 (-1000489,'Show our guest around Shattrath, will you? Keep an eye out for pickpockets in the lower city.',0,0,0,0,'SAY_KHAD_START'),
 (-1000490,'A newcomer to Shattrath! Make sure to drop by later. We can always use a hand with the injured.',0,0,0,0,'SAY_KHAD_INJURED'),
 (-1000491,'Be mindful of what you say, this one\'s being shown around by Khadgar\'s pet.',0,0,0,0,'SAY_KHAD_MIND_YOU'),
@@ -475,6 +483,10 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1000493,'Light be with you, $n. And welcome to Shattrath.',0,0,0,0,'SAY_KHAD_ALDOR_GREET'),
 (-1000494,'We\'re rather selective of who we befriend, $n. You think you have what it takes?',0,0,0,0,'SAY_KHAD_SCRYER_GREET'),
 (-1000495,'Khadgar himself is showing you around? You must have made a good impression, $n.',0,0,0,0,'SAY_KHAD_HAGGARD'),
+
+(-1000496,'%s lifts its head into the air, as if listening for something.',0,2,0,0,'ancestral wolf EMOTE_WOLF_LIFT_HEAD'),
+(-1000497,'%s lets out a howl that rings across the mountains to the north and motions for you to follow.',0,2,0,0,'ancestral wolf EMOTE_WOLF_HOWL'),
+(-1000498,'Welcome, kind spirit. What has brought you to us?',0,0,0,0,'ancestral wolf SAY_WOLF_WELCOME'),
 
 (-1000499,'Puny $r wanna fight %s? Me beat you! Me boss here!',0,0,1,0,'morokk SAY_MOR_CHALLENGE'),
 (-1000500,'Me scared! Me run now!',0,1,0,0,'morokk SAY_MOR_SCARED'),
@@ -555,8 +567,53 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1000608,'We made it! Thanks again! I\'m going to run ahead!',0,0,0,0,'melizza say SAY_COMPLETE'),
 (-1000609,'Hey Hornizz! I\'m back! And there are some people behind me who helped me out of a jam.',0,0,0,0,'melizza say SAY_POST_EVENT_1'),
 (-1000610,'We\'re going to have to scratch the Maraudines off our list. Too hard to work with...',0,0,0,0,'melizza say SAY_POST_EVENT_2'),
-(-1000611,'Well, I\'m off to the Gelkis. They\'re not as dumb as the Maraudines, but they\'re more reasonable.',0,0,0,0,'melizza say SAY_POST_EVENT_3');
+(-1000611,'Well, I\'m off to the Gelkis. They\'re not as dumb as the Maraudines, but they\'re more reasonable.',0,0,0,0,'melizza say SAY_POST_EVENT_3'),
 
+(-1000612,'Ok, let''s get started.',0,0,0,0,'stinky - quest accepted'),
+(-1000613,'Now let''s look for the herb.', 0,0,0,0,'stinky - say1'),
+(-1000614,'Nope, not here...',0,0,0,0,'stinky - say2'),
+(-1000615,'There must be one around here somewhere...', 0,0,0,0,'stinky - say3'),
+(-1000616,'Ah, there''s one! ',0,0,0,0,'stinky - say4'),
+(-1000617,'Come, $N!  Let''s go over there and collect it!',0,0,0,0,'stinky - say5'),
+(-1000618,'Ok, now let''s get out of here! ',0,0,0,0,'stinky - say6'),
+(-1000619,'I can make it from here.  Thanks, $N!  And talk to my employer about a reward!',0,0,0,0,'stinky - quest complete'),
+(-1000620,'Help! The beast is on me!',0,0,0,0,'stinky - aggro'),
+(-1000621,'%s disappears back into the swamp.',0,2,0,0,'stinky - emote disapper'),
+
+(-1000622,'Ow! OK, I''ll get back to work, $N!',0,0,0,1,'npc_lazy_peon - SAY_WP_0'),
+
+(-1000623,'We must act quickly or all shall be lost!',0,0,0,1,'ANACHRONOS_SAY_1'),
+(-1000624,'NOW, STAGHELM! WE GO NOW! Prepare your magic!',0,0,0,81,'ANACHRONOS_SAY_2'),
+(-1000625,'Stay close...',0,0,0,1,'ANACHRONOS_SAY_3'),
+(-1000626,'The sands of time will halt, but only for a moment! I will now conjure the barrier.',0,0,0,1,'ANACHRONOS_SAY_4'),
+(-1000627,'FINISH THE SPELL STAGHELM! I CANNOT HOLD THE GLYPHS OF WARDING IN PLACE MUCH LONGER! CALL FORTH THE ROOTS!',0,0,0,53,'ANACHRONOS_SAY_5'),
+(-1000628,'It... It is over, Lord Staghelm. We are victorious. Albeit the cost for this victory was great.',0,0,0,1,'ANACHRONOS_SAY_6'),
+(-1000629,'There is but one duty that remains...',0,0,0,1,'ANACHRONOS_SAY_7'),
+(-1000630,'Before I leave this place, I make one final offreing to you, Lord Staghelm. Should a time arise in which you must gain entry to this accursed fortress, use the Scepter of the Shifting Sands on the sacred gong. The magic holding the barrier together will dissipate and the horrors of Ahn\'Qiraj will be unleashed upon the world once more.',0,0,0,1,'ANACHRONOS_SAY_8'),
+(-1000631,'Lord Staghelm, where are you going? You would shatter our bond for the sake of pride?',0,0,0,1,'ANACHRONOS_SAY_9'),
+(-1000632,'And now you know all that there is to know, mortal...',0,0,0,1,'ANACHRONOS_SAY_10'),
+(-1000633,'hands the Scepter of the Shifting Sands to Fandral Staghelm.',0,2,0,1,'ANACHRONOS_EMOTE_1'),
+(-1000634,'shakes his head in dissapointment.',0,2,0,274,'ANACHRONOS_EMOTE_2'),
+(-1000635,'kneels down to pick up the fragments of the shattered scepter.',0,2,0,87,'ANACHRONOS_EMOTE_3'),
+(-1000636,'My forces cannot overcome the Qiraji defenses. We will not be able to get close enough to place your precious barrier, dragon.',0,0,0,1,'FANDRAL_SAY_1'),
+(-1000637,'It is done dragon. Lead the way...',0,0,0,1,'FANDRAL_SAY_2'),
+(-1000638,'Ancient ones guide my hand... Wake from your slumber! WAKE AND SEAL THIS CURSED PLACE!',0,0,0,1,'FANDRAL_SAY_3'),
+(-1000639,'After the savagery that my people have witnessed and felt, you expect me to accept another burden, dragon? Surely you are mad.',0,0,0,25,'FANDRAL_SAY_4'),
+(-1000640,'I want nothing to do with Silithus, the Qiraji and least of all, any damned dragons!',0,0,0,1,'FANDRAL_SAY_5'),
+(-1000641,'My son\'s soul will find no comfort in this hollow victory, dragon. I will have him back.Thought it takes a millennia, I WILL have my son back!',0,0,0,254,'FANDRAL_SAY_6'),
+(-1000642,'falls to one knee - exhausted.',0,2,0,16,'FANDRAL_EMOTE_1'),
+(-1000643,'hurls the Scepter of the Shifting Sands into the barrier, shattering it.',0,2,0,0,'FANDRAL_EMOTE_2'),
+(-1000644,'Aye, Fandral, remember these words: Let not your grief guide your faith. These thoughts you hold... dark places you go, night elf. Absolution cannot be had through misguided vengeance.',0,0,0,1,'CAELESTRASZ_SAY_1'),
+(-1000645,'Do not forget the sacrifices made on this day, night elf. We have all suffered immensely at the hands of these beasts.',0,0,0,1,'CAELESTRASZ_SAY_2'),
+(-1000646,'Alexstrasza grant me the resolve to drive our enemies back!',0,1,0,53,'CAELESTRASZ_YELL_1'),
+(-1000647,'This distraction will give you and the young druid time enough to seal the gate. Do not falter. Now, let us see how they deal with chaotic magic.',0,0,0,1,'ARYGOS_SAY_1'),
+(-1000648,'Let them feel the wrath of the Blue Flight! May Malygos protect me!',0,1,0,53,'ARYGOS_YELL_1'),
+(-1000649,'nods knowingly.',0,2,0,273,'ARYGOS_EMOTE_1'),
+(-1000650,'There is a way...',0,0,0,1,'MERITHRA_SAY_1'),
+(-1000651,'We will push them back, Anachronos. This I vow. Uphold the end of this task. Let not your hands falter as you seal our fates behind the barrier.',0,0,0,1,'MERITHRA_SAY_2'),
+(-1000652,'Succumb to the endless dream, little ones. Let it consume you!',0,1,0,53,'MERITHRA_YELL_1'),
+(-1000653,'glances at her compatriots.',0,2,0,2,'MERITHRA_EMOTE_1');
+ 
 -- -1 033 000 SHADOWFANG KEEP
 INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
 (-1033000,'Follow me and I\'ll open the courtyard door for you.',0,0,7,1,'prisoner ashcrombe SAY_FREE_AS'),
@@ -600,24 +657,77 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1043017,'Attacked! Help get this $N off of me!',0,0,0,0,'Disciple SAY_ATTACKED');
 
 -- -1 047 000 RAZORFEN KRAUL
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
+(-1047000,'Phew! Finally, out here. However, it will not become easy. Detain your eyes after annoyance.',0,0,0,0,'Willix'),
+(-1047001,'There on top resides Charlga Razorflank. The damned old Crone.',0,0,0,0,'Willix'),
+(-1047002,'Help! Get this Raging Agam''ar from me!',0,0,0,0,'Willix'),
+(-1047003,'In this ditch there are Blueleaf Tuber! As if the gold waited only to be dug out, I say it you!',0,0,0,0,'Willix'),
+(-1047004,'Danger is behind every corner.',0,0,0,0,'Willix'),
+(-1047005,'I do not understand how these disgusting animals can live at such a place.... puh as this stinks!',0,0,0,0,'Willix'),
+(-1047006,'I think, I see a way how we come out of this damned thorn tangle.',0,0,0,0,'Willix'),
+(-1047007,'I am glad that we are out again from this damned ditch. However, up here it is not much better!',0,0,0,0,'Willix'),
+(-1047008,'Finally! I am glad that I come, finally out here.',0,0,0,0,'Willix'),
+(-1047009,'I will rather rest a moment and come again to breath, before I return to Ratchet.',0,0,0,0,'Willix'),
+(-1047010,'Many thanks for your help.',0,0,0,0,'Willix');
 
 -- -1 048 000 BLACKFATHOM DEEPS
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
+(-1048000,'Just...Dust...',5803,1,0,0,''),
+(-1048001,'Sleep...',5804,1,0,0,''),
+(-1048002,'Who dares disturb my meditation!',5805,1,0,0,''),
+(-1048003,'Aku''mai is dead! At last, I can leave this wretched place.',0,1,0,0,''),
+(-1048004,'Speak with me to hear my tale',0,0,0,0,'');
 
 -- -1 070 000 ULDAMAN
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
+(-1070000,'None may steal the secrets of the makers!',5851,1,0,0,'ironaya SAY_AGGRO');
 
 -- -1 090 000 GNOMEREGAN
 
 -- -1 109 000 SUNKEN TEMPLE
 
 -- -1 129 000 RAZORFEN DOWNS
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
+(-1129000,'You''ll never leave this place... alive.',5825,1,0,0,'amnennar SAY_AGGRO'),
+(-1129001,'To me, my servants!',5828,1,0,0,'amnennar SAY_SUMMON60'),
+(-1129002,'Come, spirits, attend your master!',5829,1,0,0,'amnennar SAY_SUMMON30'),
+(-1129003,'I am the hand of the Lich King!',5827,1,0,0,'amnennar SAY_HP'),
+(-1129004,'Too...easy!',5826,1,0,0,'amnennar SAY_KILL');
 
 -- -1 189 000 SCARLET MONASTERY
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
+(-1189000,'Ah, I have been waiting for a real challenge!',5830,1,0,0,'herod SAY_AGGRO'),
+(-1189001,'Blades of Light!',5832,1,0,0,'herod SAY_WHIRLWIND'),
+(-1189002,'Light, give me strength!',5833,1,0,0,'herod SAY_ENRAGE'),
+(-1189003,'Hah, is that all?',5831,1,0,0,'herod SAY_KILL'),
+(-1189004,'%s becomes enraged!',0,2,0,0,'herod EMOTE_ENRAGE'),
+(-1189005,'Infidels! They must be purified!',5835,1,0,0,'mograine SAY_MO_AGGRO'),
+(-1189006,'Unworthy!',5836,1,0,0,'mograine SAY_MO_KILL'),
+(-1189007,'At your side, milady!',5837,1,0,0,'mograine SAY_MO_RESSURECTED'),
+(-1189008,'What, Mograine has fallen? You shall pay for this treachery!',5838,1,0,0,'whitemane SAY_WH_INTRO'),
+(-1189009,'The Light has spoken!',5839,1,0,0,'whitemane SAY_WH_KILL'),
+(-1189010,'Arise, my champion!',5840,1,0,0,'whitemane SAY_WH_RESSURECT'),
+(-1189011,'Tell me... tell me everything!',5847,1,0,0,'vishas SAY_AGGRO'),
+(-1189012,'Naughty secrets!',5849,1,0,0,'vishas SAY_HEALTH1'),
+(-1189013,'I''ll rip the secrets from your flesh!',5850,1,0,0,'vishas SAY_HEALTH2'),
+(-1189014,'Purged by pain!',5848,1,0,0,'vishas SAY_KILL'),
+(-1189015,'The monster got what he deserved.',0,0,1,0,'vishas SAY_TRIGGER_VORREL'),
+(-1189016,'We hunger for vengeance.',5844,1,0,0,'thalnos SAY_AGGRO'),
+(-1189017,'No rest, for the angry dead.',5846,1,0,0,'thalnos SAY_HEALTH'),
+(-1189018,'More... More souls.',5845,1,0,0,'thalnos SAY_KILL'),
+(-1189019,'You will not defile these mysteries!',5842,1,0,0,'doan SAY_AGGRO'),
+(-1189020,'Burn in righteous fire!',5843,1,0,0,'doan SAY_SPECIALAE'),
+(-1189021,'Release the hounds!',5841,1,0,0,'loksey SAY_AGGRO');
 
 -- -1 209 000 ZUL'FARRAK
 
 -- -1 229 000 BLACKROCK SPIRE
 
 -- -1 230 000 BLACKROCK DEPTHS
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`comment`) VALUES
+(-1230000,'Ah, hits the spot!',0,0,0,'rocknot SAY_GOT_BEER'),
+(-1230001,'Come to aid the Throne!',0,1,0,'dagran SAY_AGGRO'),
+(-1230002,'Hail to the king, baby!',0,1,0,'dagran SAY_SLAY');
 
 -- -1 249 000 ONYXIA'S LAIR
 INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`comment`) VALUES
