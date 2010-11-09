@@ -39,8 +39,9 @@ INSTANTIATE_CLASS_MUTEX(MapManager, ACE_Thread_Mutex);
 
 extern GridState* si_GridStates[];                          // debugging code, should be deleted some day
 
-MapManager::MapManager() : i_gridCleanUpDelay(sWorld.getConfig(CONFIG_INTERVAL_GRIDCLEAN))
+MapManager::MapManager()
 {
+    i_gridCleanUpDelay = sWorld.getConfig(CONFIG_INTERVAL_GRIDCLEAN);
     i_timer.SetInterval(sWorld.getConfig(CONFIG_INTERVAL_MAPUPDATE));
 }
 
@@ -137,7 +138,7 @@ Map* MapManager::CreateMap(uint32 id, const WorldObject* obj, uint32 instanceId)
     //if (!obj->IsInWorld()) sLog.outError("GetMap: called for map %d with object (typeid %d, guid %d, mapid %d, instanceid %d) who is not in world!", id, obj->GetTypeId(), obj->GetGUIDLow(), obj->GetMapId(), obj->GetInstanceId());
     Map *m = _createBaseMap(id);
 
-    if (m && (obj->GetTypeId() == TYPEID_PLAYER) && m->Instanceable()) m = ((MapInstanced*)m)->CreateInstance(id, (Player*)obj, instanceId);
+    if (m && (obj->GetTypeId() == TYPEID_PLAYER) && m->Instanceable()) m = ((MapInstanced*)m)->CreateInstance(id, (Player*)obj);
 
     return m;
 }
@@ -163,6 +164,9 @@ bool MapManager::CanPlayerEnter(uint32 mapid, Player* player)
     const MapEntry *entry = sMapStore.LookupEntry(mapid);
     if (!entry)
        return false;
+
+    if (entry->MapID == 169)
+       return true;
 
     const char *mapName = entry->name[player->GetSession()->GetSessionDbcLocale()];
 
@@ -266,10 +270,8 @@ void MapManager::Update(time_t diff)
         iter->second->DelayedUpdate(uint32(i_timer.GetCurrent()));
 
     ObjectAccessor::Instance().Update(i_timer.GetCurrent());
-    sWorld.RecordTimeDiff("UpdateObjectAccessor");
     for (TransportSet::iterator iter = m_Transports.begin(); iter != m_Transports.end(); ++iter)
         (*iter)->Update(i_timer.GetCurrent());
-    sWorld.RecordTimeDiff("UpdateTransports");
 
     i_timer.SetCurrent(0);
 }

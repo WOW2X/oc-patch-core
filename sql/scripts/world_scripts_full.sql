@@ -441,6 +441,9 @@ UPDATE `creature_template` SET `ScriptName`='npc_narm_faulk' WHERE `entry`=6177;
 UPDATE `creature_template` SET `ScriptName`='npc_lazy_peon' WHERE `entry`=10556;
 
 /* DUSKWOOD */
+DELETE FROM `areatrigger_scripts` WHERE `entry`=4017;
+INSERT INTO `areatrigger_scripts` (`entry`,`ScriptName`) VALUES (4017,'at_twilight_grove');
+UPDATE `creature_template` SET `ScriptName`='boss_twilight_corrupter' WHERE `entry`=15625;
 
 /* DUSTWALLOW MARSH */
 UPDATE `creature_template` SET `ScriptName`='mobs_risen_husk_spirit' WHERE `entry` IN (23554,23555);
@@ -489,7 +492,9 @@ UPDATE `creature_template` SET `Scriptname`='npc_ranger_lilatha' WHERE `entry`=1
 UPDATE `gameobject_template` SET `ScriptName`='go_gilded_brazier' WHERE `entry`=181956;
 
 /* GNOMEREGAN */
-
+UPDATE `creature_template` SET `ScriptName`='npc_blastmaster_emi_shortfuse' WHERE `entry`=7998;
+UPDATE `creature_template` SET `ScriptName`='boss_grubbis' WHERE `entry`=7361;
+UPDATE `instance_template` SET `script`='instance_gnomeregan' WHERE `map`=90;
 
 /* GRUUL'S LAIR */
 UPDATE `instance_template` SET `script`='instance_gruuls_lair' WHERE `map`=565;
@@ -844,6 +849,11 @@ UPDATE `creature_template` SET `ScriptName`='npc_bartleby' WHERE `entry`=6090;
 UPDATE `creature_template` SET `ScriptName`='npc_dashel_stonefist' WHERE `entry`=4961;
 UPDATE `creature_template` SET `ScriptName`='npc_general_marcus_jonathan' WHERE `entry`=466;
 UPDATE `creature_template` SET `ScriptName`='npc_lady_katrana_prestor' WHERE `entry`=1749;
+UPDATE `creature_template` SET `ScriptName`='npc_tyrion' WHERE `entry`=7766;
+UPDATE `creature_template` SET `ScriptName`='npc_tyrion_spybot' WHERE `entry`=8856;
+UPDATE `creature_template` SET `ScriptName`='npc_lord_gregor_lescovar' WHERE `entry`=1754;
+UPDATE `creature_template` SET `ScriptName`='npc_marzon_silent_blade' WHERE `entry`=1755;
+UPDATE `creature_template` SET `ScriptName`='npc_stormwind_royal_guard' WHERE `entry`=1756;
 
 /* STRANGLETHORN VALE */
 UPDATE `creature_template` SET `ScriptName`='mob_yenniku' WHERE `entry`=2530;
