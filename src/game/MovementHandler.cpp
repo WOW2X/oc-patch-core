@@ -350,9 +350,11 @@ void WorldSession::HandleMovementOpcodes(WorldPacket & recv_data)
 
     // fall damage generation (ignore in flight case that can be triggered also at lags in moment teleportation to another map).
     if (opcode == MSG_MOVE_FALL_LAND && !GetPlayer()->isInFlight())
+    {
         GetPlayer()->m_anti_justjumped = 0;
         GetPlayer()->m_anti_jumpbase = 0;
         GetPlayer()->HandleFallDamage(movementInfo);
+    }
 
     if (movementInfo.HasMovementFlag(MOVEFLAG_SWIMMING) != GetPlayer()->IsInWater())
     {
@@ -587,7 +589,7 @@ void WorldSession::HandleMovementOpcodes(WorldPacket & recv_data)
 
         GetPlayer()->SetPosition(movementInfo.GetPos()->GetPositionX(), movementInfo.GetPos()->GetPositionY(), movementInfo.GetPos()->GetPositionZ(), movementInfo.GetPos()->GetOrientation());
         GetPlayer()->m_movementInfo = movementInfo;
-        if (GetPlayer()->m_lastFallTime >= movementInfo.GetFallTime() || GetPlayer()->m_lastFallZ <=movementInfo.GetPos()->GetPositionZ() || opcode == MSG_MOVE_FALL_LAND)
+        if (GetPlayer()->m_lastFallTime > movementInfo.GetFallTime() || GetPlayer()->m_lastFallZ < movementInfo.GetPos()->GetPositionZ() || opcode == MSG_MOVE_FALL_LAND)
             GetPlayer()->SetFallInformation(movementInfo.GetFallTime(), movementInfo.GetPos()->GetPositionZ());
 
         if (GetPlayer()->isMovingOrTurning())
@@ -641,7 +643,7 @@ void WorldSession::HandlePossessedMovement(WorldPacket& recv_data, MovementInfo&
     data << pos_unit->GetPackGUID();
     data.append(recv_data.contents(), recv_data.size());
     // Send the packet to self but not to the possessed player; for creatures the first bool is irrelevant
-    pos_unit->SendMessageToSet(&data, true, false);
+    pos_unit->SendMessageToSet(&data, true);
 
     // Possessed is a player
     if (pos_unit->GetTypeId() == TYPEID_PLAYER)

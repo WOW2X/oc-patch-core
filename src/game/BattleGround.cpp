@@ -601,7 +601,7 @@ void BattleGround::EndBattleGround(uint32 winner)
         }
         else if (winner == 0)
         {
-            if (sWorld.getConfig(CONFIG_PREMATURE_BG_REWARD))
+            if (sWorld.getConfig(CONFIG_BATTLEGROUND_PREMATURE_REWARD))
             {
                 if (almost_winning_team == team)                  // player's team had more points
                     RewardMark(plr,ITEM_WINNER_COUNT);
@@ -610,6 +610,8 @@ void BattleGround::EndBattleGround(uint32 winner)
             }
         }
 
+        plr->SetHealth(plr->GetMaxHealth());
+        plr->SetPower(POWER_MANA, plr->GetMaxPower(POWER_MANA));
         plr->CombatStopWithPets(true);
 
         BlockMovement(plr);
@@ -882,7 +884,7 @@ void BattleGround::RemovePlayerAtLeave(uint64 guid, bool Transport, bool SendPac
         plr->SetBGTeam(0);
 
         if (Transport)
-            plr->TeleportTo(plr->GetBattleGroundEntryPointMap(), plr->GetBattleGroundEntryPointX(), plr->GetBattleGroundEntryPointY(), plr->GetBattleGroundEntryPointZ(), plr->GetBattleGroundEntryPointO());
+            plr->TeleportToBGEntryPoint();
 
         sLog.outDetail("BATTLEGROUND: Removed player %s from BattleGround.", plr->GetName());
     }
@@ -1003,9 +1005,7 @@ void BattleGround::AddPlayer(Player *plr)
         if (GetStatus() == STATUS_WAIT_JOIN)                 // not started yet
         {
             plr->CastSpell(plr, SPELL_ARENA_PREPARATION, true);
-
-            plr->SetHealth(plr->GetMaxHealth());
-            plr->SetPower(POWER_MANA, plr->GetMaxPower(POWER_MANA));
+            plr->ResetAllPowers();
         }
     }
     else

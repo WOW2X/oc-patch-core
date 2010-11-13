@@ -554,6 +554,8 @@ UPDATE `creature_template` SET `ScriptName`='npc_tracy_proudwell' WHERE `entry`=
 UPDATE `creature_template` SET `ScriptName`='npc_trollbane' WHERE `entry`=16819;
 UPDATE `creature_template` SET `ScriptName`='npc_ancestral_wolf' WHERE `entry`=17077;
 UPDATE `creature_template` SET `ScriptName`='npc_fel_guard_hound' WHERE `entry`=21847;
+UPDATE `creature_template` SET `ScriptName`='npc_aeranas' WHERE `entry`=17085;
+UPDATE `gameobject_template` SET `ScriptName`='go_haaleshi_altar' WHERE `entry`=181606;
 
 /* HILLSBRAD FOOTHILLS */
 
@@ -667,6 +669,8 @@ UPDATE `creature_template` SET `ScriptName`='npc_great_bear_spirit' WHERE `entry
 UPDATE `creature_template` SET `ScriptName`='npc_silva_filnaveth' WHERE `entry`=11800;
 UPDATE `creature_template` SET `ScriptName`='npc_clintar_dreamwalker' WHERE `entry`=22834;
 UPDATE `creature_template` SET `ScriptName`='npc_clintar_spirit' WHERE `entry`=22916;
+UPDATE `creature_template` SET `ScriptName`='npc_remulos' WHERE `entry`=11832;
+UPDATE `creature_template` SET `ScriptName`='npc_eranikus' WHERE `entry`=15491;
 
 /* MULGORE */
 UPDATE `creature_template` SET `ScriptName`='npc_skorn_whitecloud' WHERE `entry`=3052;
@@ -1067,6 +1071,7 @@ UPDATE `creature_template` SET `ScriptName`='npcs_dithers_and_arbington' WHERE `
 UPDATE `creature_template` SET `ScriptName`='npc_the_scourge_cauldron' WHERE `entry`=11152;
 UPDATE `creature_template` SET `ScriptName`='npc_myranda_the_hag' WHERE `entry`=11872;
 UPDATE `creature_template` SET `ScriptName`='npc_andorhal_tower' WHERE `entry` IN (10902,10903,10904,10905);
+UPDATE `creature_template` SET `ScriptName`='npc_anchorite_truuen' WHERE `entry`=17238;
 
 /* WESTFALL */
 UPDATE `creature_template` SET `ScriptName`='npc_defias_traitor' WHERE `entry`=467;

@@ -3,21 +3,13 @@
 -- TRIGGER
 -- --------
 
-INSERT INTO creature_template (entry, spell1, flags_extra, scriptname) VALUES
-(23095, 40980, 128, 'molten_flame'), # molten_flame
-(23085, 40117, 128, ''), # volcano
-(23336, 40836, 128, ''), # flame crash
-(23259, 40610, 128, ''), # blaze
-(23069, 40029, 128, ''), # demon fire
-(24187, 43218, 128, ''), # pillar of fire
-(17662, 30914, 128, '')  # Broggok Poison Cloud
-ON DUPLICATE KEY UPDATE
-spell1 = VALUES(spell1),
-flags_extra = VALUES(flags_extra),
-scriptname = VALUES(scriptname);
-
-UPDATE creature_template SET speed = 1.0 WHERE entry = 23095; # molten_flame
-
+UPDATE creature_template SET spell1 = 40980, flags_extra = 128 WHERE entry = 23095; # molten_flame
+UPDATE creature_template SET spell1 = 40117, flags_extra = 128 WHERE entry = 23085; # volcano
+UPDATE creature_template SET spell1 = 40836, flags_extra = 128 WHERE entry = 23336; # flame crash
+UPDATE creature_template SET spell1 = 40610, flags_extra = 128 WHERE entry = 23259; # blaze
+UPDATE creature_template SET spell1 = 40029, flags_extra = 128 WHERE entry = 23069; # demon fire
+UPDATE creature_template SET spell1 = 43218, flags_extra = 128 WHERE entry = 24187; # pillar of fire
+UPDATE creature_template SET spell1 = 30914, flags_extra = 128 WHERE entry = 17662; # Broggok Poison Cloud
 
 -- --------
 -- TARGET
@@ -126,7 +118,6 @@ REPLACE INTO `spell_script_target` (`entry`, `type`, `targetEntry`) VALUES
 (12134,2,5270),
 (12134,2,5271),
 (12134,2,5273),
-(12134,2,8313),
 (12134,2,5256),
 (12134,2,5259),
 (13489,1,9178),
@@ -226,7 +217,6 @@ REPLACE INTO `spell_script_target` (`entry`, `type`, `targetEntry`) VALUES
 (38629,0,185214),
 (38722,1,21506),
 (38966,1,22293),
-(38968,1,38968),
 (39124,0,184738),
 (39126,1,19557),
 (39221,1,23116),
