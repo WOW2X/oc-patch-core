@@ -1953,6 +1953,15 @@ SOAP.Port = 7878
 #       Default: 0 (Disabled)
 #                1 - Enabled
 #
+#   RenameNPC.Enable
+#       Enable the Rename NPC.
+#       Default: 1 - Enabled
+#                0 (Disabled)
+#
+#   RenameNPC.CostInGold
+#       Cost to rename character in gold.
+#       Default: 100
+#
 ###############################################################################
 
 PlayerStart.AllReputation = 0
@@ -1974,6 +1983,8 @@ MinRecordUpdateTimeDiff = 10
 PlayerStart.String = ""
 DuelMod.Enable = 0
 DuelMod.Cooldowns = 0
+RenameNPC.Enable = 1
+RenameNPC.CostInGold = 100
 
 ###############################################################################
 # MOVEMENT ANTICHEAT

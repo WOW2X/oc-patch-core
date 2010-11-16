@@ -9,16 +9,20 @@
 #include "../scripts/Custom/sc_npc_teleport.h"
   
 // custom
-extern void AddSC_item_teleport();
-extern void AddSC_item_summonnpc();
-extern void AddSC_npc_teleport();
-extern void AddSC_npc_tokens();
-extern void AddSC_npc_guildmaster();
-extern void AddSC_npc_door_codes();
-extern void AddSC_npc_codebox();
-extern void AddSC_npc_buff();
-extern void AddSC_npc_heal();
-extern void AddSC_npc_areaguard();
+void AddSC_item_teleport();
+void AddSC_item_summonnpc();
+void AddSC_npc_teleport();
+void AddSC_npc_tokens();
+void AddSC_npc_guildmaster();
+void AddSC_npc_door_codes();
+void AddSC_npc_codebox();
+void AddSC_npc_buff();
+void AddSC_npc_heal();
+void AddSC_npc_areaguard();
+void AddSC_npc_rename();
+
+//custom
+void AddSC_npc_rename();
 
 //examples
 //void AddSC_custom_example();
@@ -403,6 +407,7 @@ void AddScripts()
     AddSC_npc_buff();
     AddSC_npc_heal();
     AddSC_npc_areaguard();
+    AddSC_npc_rename();
 
 //    AddSC_custom_example();
 //    AddSC_custom_gossip_codebox();
