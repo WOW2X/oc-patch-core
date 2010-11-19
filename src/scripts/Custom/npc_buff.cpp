@@ -9,21 +9,21 @@ EndScriptData */
 
 bool GossipHello_NPC_Buff(Player *player, Creature *_Creature)
 {
-	// Main Menu for Alliance
+    // Main Menu for Alliance
     if ( player->GetTeam() == ALLIANCE )
-	{
-	player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
+    {
+        player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
         player->ADD_GOSSIP_ITEM( 7, "GM Spells ->", GOSSIP_SENDER_MAIN, 3000);
         player->ADD_GOSSIP_ITEM( 7, "Other Gifts ->", GOSSIP_SENDER_MAIN, 4000);
-	}
-	else // Main Menu for Horde
-	{
-	player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
+    }
+    else // Main Menu for Horde
+    {
+        player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
         player->ADD_GOSSIP_ITEM( 7, "GM Spells ->", GOSSIP_SENDER_MAIN, 3000);
         player->ADD_GOSSIP_ITEM( 7, "Other Gifts ->", GOSSIP_SENDER_MAIN, 4000);
-	}
+    }
 
-	player->ADD_GOSSIP_ITEM( 10, "Remove Resurrect Sickness", GOSSIP_SENDER_MAIN, 5000);
+    player->ADD_GOSSIP_ITEM( 10, "Remove Resurrect Sickness", GOSSIP_SENDER_MAIN, 5000);
 
     player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
 
@@ -38,74 +38,70 @@ if(!player->getAttackers().empty())
 {
     player->CLOSE_GOSSIP_MENU();
     _Creature->MonsterSay("You are in combat!", LANG_UNIVERSAL, NULL);
-	return;
+    return;
 }
 
 switch(action)
 {
 
-case 1000: //Small  Buff
-		player->ADD_GOSSIP_ITEM( 5, "Give me Mark of the Wild"                , GOSSIP_SENDER_MAIN, 1001);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Thorns"                          , GOSSIP_SENDER_MAIN, 1005);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Amplify Magic"                   , GOSSIP_SENDER_MAIN, 1010);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Arcane Intellect"                , GOSSIP_SENDER_MAIN, 1015);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Dampen Magic"                    , GOSSIP_SENDER_MAIN, 1025);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Blessing of Kings"               , GOSSIP_SENDER_MAIN, 1030);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Blessing of Might"               , GOSSIP_SENDER_MAIN, 1035);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Blessing of Wisdom"              , GOSSIP_SENDER_MAIN, 1040);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Divine Spirit"                   , GOSSIP_SENDER_MAIN, 1045);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Power Word: Fortitude"           , GOSSIP_SENDER_MAIN, 1050);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Shadow Protection"               , GOSSIP_SENDER_MAIN, 1055);
-		player->ADD_GOSSIP_ITEM( 7, "<- Main Menu"                            , GOSSIP_SENDER_MAIN, 5005);
+case 1000: // Small Buff
+    player->ADD_GOSSIP_ITEM( 5, "Give me Mark of the Wild"                          , GOSSIP_SENDER_MAIN, 1001);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Thorns"                                    , GOSSIP_SENDER_MAIN, 1005);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Amplify Magic"                             , GOSSIP_SENDER_MAIN, 1010);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Arcane Intellect"                          , GOSSIP_SENDER_MAIN, 1015);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Dampen Magic"                              , GOSSIP_SENDER_MAIN, 1025);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Blessing of Kings"                         , GOSSIP_SENDER_MAIN, 1030);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Blessing of Might"                         , GOSSIP_SENDER_MAIN, 1035);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Blessing of Wisdom"                        , GOSSIP_SENDER_MAIN, 1040);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Divine Spirit"                             , GOSSIP_SENDER_MAIN, 1045);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Power Word: Fortitude"                     , GOSSIP_SENDER_MAIN, 1050);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Shadow Protection"                         , GOSSIP_SENDER_MAIN, 1055);
+    player->ADD_GOSSIP_ITEM( 7, "<- Main Menu"                                      , GOSSIP_SENDER_MAIN, 5005);
+    player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
+    break;
 
-	player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
-break;
+case 3000: // GM Buff
+    player->ADD_GOSSIP_ITEM( 5, "Give me Agamaggan's Agility"                       , GOSSIP_SENDER_MAIN, 3001);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Agamaggan's Strength"                      , GOSSIP_SENDER_MAIN, 3005);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Increased Stamina"                         , GOSSIP_SENDER_MAIN, 3020);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Razorhide"                                 , GOSSIP_SENDER_MAIN, 3025);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Rising Spirit"                             , GOSSIP_SENDER_MAIN, 3030);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Spirit of the Wind"                        , GOSSIP_SENDER_MAIN, 3035);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Wisdom of Agamaggan"                       , GOSSIP_SENDER_MAIN, 3040);
+    player->ADD_GOSSIP_ITEM( 7, "<- Main Menu"                                      , GOSSIP_SENDER_MAIN, 5005);
+    player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
+    break;
 
-case 3000: //GM  Buff
-		player->ADD_GOSSIP_ITEM( 5, "Give me Agamaggan's Agility"             , GOSSIP_SENDER_MAIN, 3001);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Agamaggan's Strength"            , GOSSIP_SENDER_MAIN, 3005);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Increased Stamina"               , GOSSIP_SENDER_MAIN, 3020);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Razorhide"                       , GOSSIP_SENDER_MAIN, 3025);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Rising Spirit"                   , GOSSIP_SENDER_MAIN, 3030);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Spirit of the Wind"              , GOSSIP_SENDER_MAIN, 3035);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Wisdom of Agamaggan"             , GOSSIP_SENDER_MAIN, 3040);
-		player->ADD_GOSSIP_ITEM( 7, "<- Main Menu"                            , GOSSIP_SENDER_MAIN, 5005);
+case 4000: // Player Tools
+    player->ADD_GOSSIP_ITEM( 5, "Give me Gold"                                      , GOSSIP_SENDER_MAIN, 4001);
+    player->ADD_GOSSIP_ITEM( 5, "Give me Soul Shards"                               , GOSSIP_SENDER_MAIN, 4005);
+    player->ADD_GOSSIP_ITEM( 5, "Maximize my Skills"
+    , GOSSIP_SENDER_MAIN, 4007);
+    player->ADD_GOSSIP_ITEM( 5, "Heal Me, Please"                                   , GOSSIP_SENDER_MAIN, 4010);
+    player->ADD_GOSSIP_ITEM( 7, "<- Main Menu"                                      , GOSSIP_SENDER_MAIN, 5005);
+    player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
+    break;
 
-	player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
-break;
-
-case 4000: //Player Tools
-		player->ADD_GOSSIP_ITEM( 5, "Give me Gold"                            , GOSSIP_SENDER_MAIN, 4001);
-		player->ADD_GOSSIP_ITEM( 5, "Give me Soul Shards"                     , GOSSIP_SENDER_MAIN, 4005);
-                player->ADD_GOSSIP_ITEM( 5, "Maximize my Skills"
-      , GOSSIP_SENDER_MAIN, 4007);
-		player->ADD_GOSSIP_ITEM( 5, "Heal Me, Please"                          , GOSSIP_SENDER_MAIN, 4010);
-		player->ADD_GOSSIP_ITEM( 7, "<- Main Menu"                            , GOSSIP_SENDER_MAIN, 5005);
-
-	player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
-break;
-
-case 5005: //Back To Main Menu
-	// Main Menu for Alliance
+case 5005: // Back To Main Menu
+    // Main Menu for Alliance
     if ( player->GetTeam() == ALLIANCE )
-	{
-	player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
+    {
+        player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
         player->ADD_GOSSIP_ITEM( 7, "GM Spells ->", GOSSIP_SENDER_MAIN, 3000);
         player->ADD_GOSSIP_ITEM( 7, "Other Gifts ->", GOSSIP_SENDER_MAIN, 4000);
-	}
-	else // Main Menu for Horde
-	{
-	player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
+    }
+    else // Main Menu for Horde
+    {
+        player->ADD_GOSSIP_ITEM( 7, "Small Spells ->", GOSSIP_SENDER_MAIN, 1000);
         player->ADD_GOSSIP_ITEM( 7, "GM Spells ->", GOSSIP_SENDER_MAIN, 3000);
         player->ADD_GOSSIP_ITEM( 7, "Other Gifts ->", GOSSIP_SENDER_MAIN, 4000);
-	}
+    }
 
-	player->ADD_GOSSIP_ITEM( 10, "Remove Resurrect Sickness", GOSSIP_SENDER_MAIN, 5000);
+    player->ADD_GOSSIP_ITEM( 10, "Remove Resurrect Sickness", GOSSIP_SENDER_MAIN, 5000);
+    player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
+    break;
 
-	player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE,_Creature->GetGUID());
-break;
-
-////////////////////////////////Small Buff////////////////////////////////////
+// Small Buff
 
 case 1001: // Give me Mark of the Wild
     player->CLOSE_GOSSIP_MENU();
@@ -162,7 +158,7 @@ case 1055: // Give me Shadow Protection
     _Creature->CastSpell(player,25433,false);
 break;
 
-////////////////////////////////GM Buff///////////////////////////////////////
+// GM Buff
 
 case 3001: // Give me Agamaggan's Agility
     player->CLOSE_GOSSIP_MENU();
@@ -199,7 +195,7 @@ case 3040: // Give me Wisdom of Agamaggan
     _Creature->CastSpell(player,7764,false);
 break;
 
-////////////////////////////////Player Tools//////////////////////////////////
+// Player Tools
 
 case 4001://Give me Gold
     player->CLOSE_GOSSIP_MENU();
@@ -222,40 +218,37 @@ case 4010: // Heal me please
 break;
 
 case 5000://Remove Res Sickness
-	if(!player->HasAura(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS,0)) {
-		_Creature->MonsterWhisper("You are not suffering from resurrection sickness.", player->GetGUID());
-		GossipHello_NPC_Buff(player, _Creature);
-		return;
-	}
+    if(!player->HasAura(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS,0)) {
+        _Creature->MonsterWhisper("You are not suffering from resurrection sickness.", player->GetGUID());
+        GossipHello_NPC_Buff(player, _Creature);
+        return;
+    }
 
-	_Creature->CastSpell(player,38588,false); // Healing effect
-	player->RemoveAurasDueToSpell(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS);
-	player->CLOSE_GOSSIP_MENU();
-break;
+    _Creature->CastSpell(player,38588,false); // Healing effect
+    player->RemoveAurasDueToSpell(SPELL_ID_PASSIVE_RESURRECTION_SICKNESS);
+    player->CLOSE_GOSSIP_MENU();
+    break;
 
- player->CLOSE_GOSSIP_MENU();
+    player->CLOSE_GOSSIP_MENU();
 
-} // end of switch
+    } // end of switch
 } //end of function
-
-
 
 bool GossipSelect_NPC_Buff(Player *player, Creature *_Creature, uint32 sender, uint32 action)
 {
-	// Main menu
-	if (sender == GOSSIP_SENDER_MAIN)
-	SendDefaultMenu_NPC_Buff( player, _Creature, action );
-
-return true;
+    // Main menu
+    if (sender == GOSSIP_SENDER_MAIN)
+        SendDefaultMenu_NPC_Buff( player, _Creature, action );
+    return true;
 }
 
 void AddSC_npc_buff()
 {
     Script *newscript;
-
     newscript = new Script;
     newscript->Name = "npc_buff";
     newscript->pGossipHello = &GossipHello_NPC_Buff;
     newscript->pGossipSelect = &GossipSelect_NPC_Buff;
     newscript->RegisterSelf();
 }
+

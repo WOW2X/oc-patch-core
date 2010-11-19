@@ -1035,32 +1035,32 @@ void GameObject::Use(Unit* user)
                 Player* player = user->ToPlayer();
 
  		// Probably not doing this right -- Lunera
-                 float xt,yt,zt,orientationt;
-                 uint32 mapidt;
+               float xt,yt,zt,orientationt;
+               uint32 mapidt;
  
-                 std::ostringstream qry;
-                 qry << "SELECT * FROM gameobject_teleports WHERE entry = " << info->id;
-                 QueryResult_AutoPtr result = WorldDatabase.Query(qry.str( ).c_str( ));
-                 if(result != NULL)
-                 {
-                     Field *fields = result->Fetch();
-                     uint32 required_level = fields[6].GetInt32();
+               std::ostringstream qry;
+               qry << "SELECT * FROM gameobject_teleports WHERE entry = " << info->id;
+               QueryResult_AutoPtr result = WorldDatabase.Query(qry.str( ).c_str( ));
+               if(result != NULL)
+               {
+                   Field *fields = result->Fetch();
+                   uint32 required_level = fields[6].GetInt32();
  
-                     if ((required_level == 0) || (required_level <= player->getLevel()))
-                     {
-                         mapidt = fields[1].GetInt32();
-                         xt = fields[2].GetFloat();
-                         yt = fields[3].GetFloat();
-                         zt = fields[4].GetFloat();
-                         orientationt = fields[5].GetFloat();
+                   if ((required_level == 0) || (required_level <= player->getLevel()))
+                   {
+                       mapidt = fields[1].GetInt32();
+                       xt = fields[2].GetFloat();
+                       yt = fields[3].GetFloat();
+                       zt = fields[4].GetFloat();
+                       orientationt = fields[5].GetFloat();
  
-                         player->TeleportTo(mapidt, xt, yt, zt, orientationt, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NOT_LEAVE_COMBAT | TELE_TO_NOT_UNSUMMON_PET);
-                      }
-                      else if (required_level != 0)
-                      {
-                      }
-                 }
-                 //I'm done here -- Lunera
+                       player->TeleportTo(mapidt, xt, yt, zt, orientationt, TELE_TO_NOT_LEAVE_TRANSPORT | TELE_TO_NOT_LEAVE_COMBAT | TELE_TO_NOT_UNSUMMON_PET);
+                    }
+                    else if (required_level != 0)
+                    {
+                    }
+               }
+               //I'm done here -- Lunera
 
                 if (info->goober.pageId)                    // show page...
                 {

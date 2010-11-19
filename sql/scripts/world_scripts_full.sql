@@ -299,6 +299,8 @@ UPDATE `creature_template` SET `ScriptName`='npc_daranelle' WHERE `entry`=21469;
 UPDATE `creature_template` SET `ScriptName`='npc_overseer_nuaar' WHERE `entry`=21981;
 UPDATE `creature_template` SET `ScriptName`='npc_saikkal_the_elder' WHERE `entry`=22932;
 UPDATE `creature_template` SET `ScriptName`='npc_skyguard_handler_deesak' WHERE `entry`=23415;
+UPDATE `creature_template` SET `ScriptName`='npc_ogre_brute' WHERE `entry`=19995;
+UPDATE `creature_template` SET `ScriptName`='npc_bloodmaul_brutebane' WHERE `entry`=21241;
 
 /* BLASTED LANDS */
 UPDATE `creature_template` SET `ScriptName`='npc_deathly_usher' WHERE `entry`=8816;
@@ -448,6 +450,7 @@ UPDATE `creature_template` SET `ScriptName`='boss_twilight_corrupter' WHERE `ent
 /* DUSTWALLOW MARSH */
 UPDATE `creature_template` SET `ScriptName`='mobs_risen_husk_spirit' WHERE `entry` IN (23554,23555);
 UPDATE `creature_template` SET `ScriptName`='npc_deserter_agitator' WHERE `entry`=23602;
+UPDATE `creature_template` SET `ScriptName`='npc_theramore_guard' WHERE `entry`=4979;
 UPDATE `creature_template` SET `ScriptName`='npc_lady_jaina_proudmoore' WHERE `entry`=4968;
 UPDATE `creature_template` SET `ScriptName`='npc_nat_pagle' WHERE `entry`=12919;
 UPDATE `creature_template` SET `ScriptName`='npc_restless_apparition' WHERE `entry`=23861;
@@ -720,6 +723,8 @@ UPDATE `creature_template` SET `ScriptName`='npc_veronia' WHERE `entry`=20162;
 UPDATE `creature_template` SET `ScriptName`='mob_phase_hunter' WHERE `entry` =18879;
 UPDATE `creature_template` SET `ScriptName`='npc_professor_dabiri' WHERE `entry`=20907;
 UPDATE `creature_template` SET `ScriptName`='npc_bessy' WHERE `entry`=20415;
+UPDATE `creature_template` SET `ScriptName`='npc_commander_dawnforge' WHERE `entry`=19831;
+UPDATE `creature_template` SET `ScriptName`='npc_maxx_a_million_escort', `MovementType`=2 WHERE `entry`=19589;
 
 /* ONYXIA'S LAIR */
 UPDATE `creature_template` SET `ScriptName`='boss_onyxia' WHERE `entry`=10184;
@@ -1023,6 +1028,7 @@ UPDATE `creature_template` SET `ScriptName`='npc_akuno' WHERE `entry`=22377;
 UPDATE `creature_template` SET `ScriptName`='npc_slim' WHERE `entry`=19679;
 UPDATE `creature_template` SET `ScriptName`='npc_captive_child' WHERE `entry`=22314;
 UPDATE `creature_template` SET `ScriptName`='npc_skywing' WHERE `entry`=22424;
+UPDATE `creature_template` SET `ScriptName`='npc_skyguard_prisoner' WHERE `entry`=23383;
 
 
 /* THOUSAND NEEDLES */

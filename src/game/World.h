@@ -245,17 +245,21 @@ enum WorldConfigs
     CONFIG_VMAP_INDOOR_CHECK,
     CONFIG_DUEL_MOD,
     CONFIG_DUEL_CD_RESET,
+    CONFIG_AUTOBROADCAST,
+    CONFIG_AUTOBROADCAST_CENTER,
+    CONFIG_AUTOBROADCAST_INTERVAL,
     CONFIG_VALUE_COUNT
 };
 
 /// Server rates
 enum Rates
 {
-    RATE_HEALTH=0,
+    RATE_HEALTH = 0,
     RATE_POWER_MANA,
     RATE_POWER_RAGE_INCOME,
     RATE_POWER_RAGE_LOSS,
     RATE_POWER_FOCUS,
+    RATE_POWER_ENERGY,
     RATE_SKILL_DISCOVERY,
     RATE_DROP_ITEM_POOR,
     RATE_DROP_ITEM_NORMAL,
@@ -306,7 +310,7 @@ enum Rates
     RATE_DURABILITY_LOSS_PARRY,
     RATE_DURABILITY_LOSS_ABSORB,
     RATE_DURABILITY_LOSS_BLOCK,
-	RATE_PVP_RANK_EXTRA_HONOR,
+    RATE_PVP_RANK_EXTRA_HONOR,
     MAX_RATES
 };
 
@@ -430,8 +434,7 @@ class World
 
         WorldSession* FindSession(uint32 id) const;
         void AddSession(WorldSession *s);
-        void SendRNDBroadcast();
-        void SendRNDBroadcastIRC();
+        void SendAutoBroadcast();
         bool RemoveSession(uint32 id);
         /// Get the number of current active sessions
         void UpdateMaxSessionCounters();

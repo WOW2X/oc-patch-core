@@ -3,7 +3,7 @@
 ###############################################
 
 [worldserver]
-ConfVersion=2010103001
+ConfVersion=2010111401
 
 # Note to devs, line breaks should be at column 80
 ###############################################################################
@@ -1232,6 +1232,7 @@ Visibility.Notify.Period.InBGArenas   = 1000
 #    Rate.Rage.Income
 #    Rate.Rage.Loss
 #    Rate.Focus
+#    Rate.Energy
 #    Rate.Loyalty
 #        Health and power regeneration and rage income from damage.
 #        Default: 1
@@ -1378,6 +1379,7 @@ Rate.Mana = 1
 Rate.Rage.Income = 1
 Rate.Rage.Loss = 1
 Rate.Focus = 1
+Rate.Energy = 1
 Rate.Loyalty = 1
 Rate.Skill.Discovery = 1
 Rate.Drop.Item.Poor = 1
@@ -1936,7 +1938,7 @@ SOAP.Port = 7878
 #
 #   MinRecordUpdateTimeDiff
 #        Only record update time diff which is greater than this value
-#        Default: 10
+#        Default: 100
 #
 #   PlayerStart.String
 #       If set to anything other than "", this string will be displayed
@@ -1952,15 +1954,6 @@ SOAP.Port = 7878
 #       Makes the players arena cooldowns reset before each duel.
 #       Default: 0 (Disabled)
 #                1 - Enabled
-#
-#   RenameNPC.Enable
-#       Enable the Rename NPC.
-#       Default: 1 - Enabled
-#                0 (Disabled)
-#
-#   RenameNPC.CostInGold
-#       Cost to rename character in gold.
-#       Default: 100
 #
 ###############################################################################
 
@@ -1979,12 +1972,10 @@ PvPRank.HKPerRank = "10,50,100,200,450,750,1300,2000,3500,6000,9500,15000,21000,
 NoResetTalentsCost = 0
 ShowKickInWorld = 0
 RecordUpdateTimeDiffInterval = 60000
-MinRecordUpdateTimeDiff = 10
+MinRecordUpdateTimeDiff = 100
 PlayerStart.String = ""
 DuelMod.Enable = 0
 DuelMod.Cooldowns = 0
-RenameNPC.Enable = 1
-RenameNPC.CostInGold = 100
 
 ###############################################################################
 # MOVEMENT ANTICHEAT
@@ -2023,7 +2014,7 @@ Anticheat.Movement.TeleportToPlaneAlarms = 50
 
 AutoBroadcast.On = 0
 AutoBroadcast.Center = 0
-AutoBroadcast.Timer = 5
+AutoBroadcast.Timer = 15
 
 ##############################################################################
 # OCChat IRC BOT Configuration
@@ -2160,7 +2151,7 @@ AutoBroadcast.Timer = 5
 #     Example: "IRC/IRC_" outputs IRC_YYYY-MM-DD.log to the
 #              IRC subdirectory in your logs dir
 # irc.logchannel
-#      Specifies the channel where logged output gets broadcasted.
+#      Specefies the channel where logged output gets broadcasted.
 #      Default: "" (none)
 # irc.logchannelpw
 #     The password for the log channel.
@@ -2197,6 +2188,8 @@ irc.chan_2 = "LFG"
 wow.chan_2 = "LookingForGroup"
 irc.StatusChannel = 1
 irc.AnnounceChannel = 1
+irc.op_gm_login = 0
+irc.op_gm_level = 3
 irc.online.result = 30
 chat.wow_irc = "WoW - [$Name($Level)] $Msg"
 chat.irc_wow = "IRC - [$Name] $Msg"

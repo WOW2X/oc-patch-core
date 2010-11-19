@@ -2,8 +2,6 @@
 
 /*******************************************************
  * npc_areaguard
- * by Celtus
- * TODO: Think about loading the data at core start...
  *******************************************************/
 
 struct npc_areaguardAI : public Scripted_NoMovementAI
@@ -23,7 +21,6 @@ struct npc_areaguardAI : public Scripted_NoMovementAI
 
     void MoveInLineOfSight(Unit *pWho)
     {
-
         // Return if Distance is greater than maximum (65 ft) - saves data reads
         if (!me->IsWithinDist(pWho, 65.0f, false))
             return;

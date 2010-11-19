@@ -1740,7 +1740,7 @@ class Player : public Unit, public GridObject<Player>
         void ModifyHonorPoints(int32 value);
         void ModifyArenaPoints(int32 value);
         uint32 GetMaxPersonalArenaRatingRequirement();
-		void UpdateKnownTitles();
+        void UpdateKnownTitles();
         //End of PvP System
 
         void SetDrunkValue(uint16 newDrunkValue, uint32 itemid=0);
@@ -2165,7 +2165,6 @@ class Player : public Unit, public GridObject<Player>
         void _SaveReputation();
         void _SaveSpells();
         void _SaveTutorials();
-        void _SaveStats();
         void _SaveBGData();
 
         void _SetCreateBits(UpdateMask *updateMask, Player *target) const;

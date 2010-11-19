@@ -461,6 +461,7 @@ void World::LoadConfigSettings(bool reload)
         rate_values[RATE_POWER_RAGE_LOSS] = 1;
     }
     rate_values[RATE_POWER_FOCUS] = sConfig.GetFloatDefault("Rate.Focus", 1.0f);
+    rate_values[RATE_POWER_ENERGY] = sConfig.GetFloatDefault("Rate.Energy", 1.0f);
     rate_values[RATE_LOYALTY]     = sConfig.GetFloatDefault("Rate.Loyalty", 1.0f);
     rate_values[RATE_SKILL_DISCOVERY] = sConfig.GetFloatDefault("Rate.Skill.Discovery", 1.0f);
     rate_values[RATE_DROP_ITEM_POOR]       = sConfig.GetFloatDefault("Rate.Drop.Item.Poor", 1.0f);
@@ -563,6 +564,12 @@ void World::LoadConfigSettings(bool reload)
         sLog.outError("Anticheat.Movement.TeleportToPlaneAlarms (%d) must be <=100. Using 100 instead.", m_TeleportToPlaneAlarms);
         m_TeleportToPlaneAlarms = 100;
     }
+
+    // AutoBroadcast
+    m_configs[CONFIG_AUTOBROADCAST] = sConfig.GetBoolDefault("AutoBroadcast.On", false);
+    m_configs[CONFIG_AUTOBROADCAST_CENTER] = sConfig.GetIntDefault("AutoBroadcast.Center", 0);
+    m_configs[CONFIG_AUTOBROADCAST_INTERVAL] = (sConfig.GetIntDefault("AutoBroadcast.Timer", 5)*MINUTE*1000);
+
     ///- Read other configuration items from the config file
 
     m_configs[CONFIG_COMPRESSION] = sConfig.GetIntDefault("Compression", 1);
@@ -1096,7 +1103,7 @@ void World::LoadConfigSettings(bool reload)
     m_configs[CONFIG_NO_RESET_TALENT_COST] = sConfig.GetBoolDefault("NoResetTalentsCost", false);
     m_configs[CONFIG_SHOW_KICK_IN_WORLD] = sConfig.GetBoolDefault("ShowKickInWorld", false);
     m_configs[CONFIG_INTERVAL_LOG_UPDATE] = sConfig.GetIntDefault("RecordUpdateTimeDiffInterval", 60000);
-    m_configs[CONFIG_MIN_LOG_UPDATE] = sConfig.GetIntDefault("MinRecordUpdateTimeDiff", 10);
+    m_configs[CONFIG_MIN_LOG_UPDATE] = sConfig.GetIntDefault("MinRecordUpdateTimeDiff", 100);
     m_configs[CONFIG_NUMTHREADS] = sConfig.GetIntDefault("MapUpdate.Threads",1);
     m_configs[CONFIG_DUEL_MOD] = sConfig.GetBoolDefault("DuelMod.Enable", false);
     m_configs[CONFIG_DUEL_CD_RESET] = sConfig.GetBoolDefault("DuelMod.Cooldowns", false);
@@ -1137,7 +1144,7 @@ void World::LoadConfigSettings(bool reload)
     sIRC._Host = sConfig.GetStringDefault("irc.host", "localhost");
     if (sIRC._Host.size() > 0)
         ConfCnt++;
-    sIRC._Mver = "Version 1.0.2";
+    sIRC._Mver = "Version 1.1.0";
     sIRC._Port = sConfig.GetIntDefault("irc.port", 6667);
     sIRC._User = sConfig.GetStringDefault("irc.user", "OCChat");
     sIRC._Pass = sConfig.GetStringDefault("irc.pass", "");
@@ -1625,8 +1632,6 @@ void World::SetInitialWorldSettings()
     WorldDatabase.PExecute("INSERT INTO uptime (startstring, starttime, uptime) VALUES('%s', " UI64FMTD ", 0)",
         isoDate, uint64(m_startTime));
         
-    static uint32 abtimer = 0;
-    abtimer = sConfig.GetIntDefault("AutoBroadcast.Timer", 5);
     m_timers[WUPDATE_OBJECTS].SetInterval(IN_MILLISECONDS/2);
     m_timers[WUPDATE_SESSIONS].SetInterval(0);
     m_timers[WUPDATE_WEATHERS].SetInterval(IN_MILLISECONDS);
@@ -1637,8 +1642,7 @@ void World::SetInitialWorldSettings()
                                                             //erase corpses every 20 minutes
     m_timers[WUPDATE_CLEANDB].SetInterval(m_configs[CONFIG_LOGDB_CLEARINTERVAL]*MINUTE*IN_MILLISECONDS);
                                                             // clean logs table every 14 days by default
-
-    m_timers[WUPDATE_AUTOBROADCAST].SetInterval(abtimer*MINUTE*1000);
+    m_timers[WUPDATE_AUTOBROADCAST].SetInterval(getConfig(CONFIG_AUTOBROADCAST_INTERVAL));
     //to set mailtimer to return mails every day between 4 and 5 am
     //mailtimer is increased when updating auctions
     //one second is 1000 -(tested on win system)
@@ -1761,7 +1765,7 @@ void World::RecordTimeDiff(const char *text, ...)
     uint32 thisTime = getMSTime();
     uint32 diff = getMSTimeDiff(m_currentTime, thisTime);
 
-    if (diff > m_configs[CONFIG_MIN_LOG_UPDATE])
+    if (diff >= m_configs[CONFIG_MIN_LOG_UPDATE])
     {
         va_list ap;
         char str[256];
@@ -1784,32 +1788,24 @@ void World::LoadAutobroadcasts()
     {
         barGoLink bar(1);
         bar.step();
-
-
         sLog.outString();
         sLog.outString(">> Loaded 0 autobroadcasts definitions");
         return;
     }
 
     barGoLink bar(result->GetRowCount());
-
     uint32 count = 0;
-
     do
     {
         bar.step();
-
         Field *fields = result->Fetch();
-
         std::string message = fields[0].GetCppString();
-
         m_Autobroadcasts.push_back(message);
-
         count++;
     } while (result->NextRow());
 
     sLog.outString();
-    sLog.outString(">> Loaded %u autobroadcasts definitions", count);
+    sLog.outString(">> Loaded %u autobroadcast definitions", count);
 }
 
 /// Update the World !
@@ -1818,7 +1814,7 @@ void World::Update(time_t diff)
     m_updateTime = uint32(diff);
     if (m_configs[CONFIG_INTERVAL_LOG_UPDATE])
     {
-        if (m_updateTimeSum > m_configs[CONFIG_INTERVAL_LOG_UPDATE])
+        if (m_updateTimeSum > m_configs[CONFIG_INTERVAL_LOG_UPDATE] && uint32(diff) >= m_configs[CONFIG_MIN_LOG_UPDATE])
         {
             sLog.outBasic("Update time diff: %u. Players online: %u.", m_updateTimeSum / m_updateTimeCount, GetActiveSessionCount());
             m_updateTimeSum = m_updateTime;
@@ -1939,16 +1935,13 @@ void World::Update(time_t diff)
         RecordTimeDiff("UpdateScriptsProcess");
     }
     
-    static uint32 autobroadcaston = 0;
-    autobroadcaston = sConfig.GetIntDefault("AutoBroadcast.On", 0);
-    if (autobroadcaston == 1)
+    if (sWorld.getConfig(CONFIG_AUTOBROADCAST))
     {
-       if (m_timers[WUPDATE_AUTOBROADCAST].Passed())
-       {
-          m_timers[WUPDATE_AUTOBROADCAST].Reset();
-          SendRNDBroadcast();
-          SendRNDBroadcastIRC();
-       }
+        if (m_timers[WUPDATE_AUTOBROADCAST].Passed())
+        {
+            m_timers[WUPDATE_AUTOBROADCAST].Reset();
+            SendAutoBroadcast();
+        }
     }
     
     sBattleGroundMgr.Update(diff);
@@ -3250,23 +3243,24 @@ void World::ProcessCliCommands()
     }
 }
 
-void World::SendRNDBroadcast()
+void World::SendAutoBroadcast()
 {
     if (m_Autobroadcasts.empty())
         return;
 
     std::string msg;
+    std::string ircchan = "#";
 
     std::list<std::string>::const_iterator itr = m_Autobroadcasts.begin();
     std::advance(itr, rand() % m_Autobroadcasts.size());
     msg = *itr;
 
-    static uint32 abcenter = 0;
-    abcenter = sConfig.GetIntDefault("AutoBroadcast.Center", 0);
+    ircchan += sIRC._irc_chan[sIRC.anchn].c_str();
+
+    uint32 abcenter = sWorld.getConfig(CONFIG_AUTOBROADCAST_CENTER);
     if (abcenter == 0)
     {
         sWorld.SendWorldText(LANG_AUTO_BROADCAST, msg.c_str());
-
         sLog.outString("AutoBroadcast: '%s'",msg.c_str());
     }
     if (abcenter == 1)
@@ -3274,18 +3268,19 @@ void World::SendRNDBroadcast()
         WorldPacket data(SMSG_NOTIFICATION, (msg.size()+1));
         data << msg;
         sWorld.SendGlobalMessage(&data);
-
         sLog.outString("AutoBroadcast: '%s'",msg.c_str());
     }
     if (abcenter == 2)
     {
         sWorld.SendWorldText(LANG_AUTO_BROADCAST, msg.c_str());
-
         WorldPacket data(SMSG_NOTIFICATION, (msg.size()+1));
         data << msg;
         sWorld.SendGlobalMessage(&data);
-
         sLog.outString("AutoBroadcast: '%s'",msg.c_str());
+    }
+    if ( sIRC.Active )
+    { 
+        sIRC.Send_IRC_Channel(ircchan, sIRC.MakeMsg("\00304,08\037/!\\\037\017\00304 Automatic System Message \00304,08\037/!\\\037\017 %s", "%s", msg.c_str()), true);
     }
 }
 
@@ -3298,25 +3293,6 @@ void World::InitResultQueue()
 void World::UpdateResultQueue()
 {
     m_resultQueue->Update();
-}
-
-void World::SendRNDBroadcastIRC()
-{
-   if (m_Autobroadcasts.empty())
-       return;
-
-   std::string msg;
-   std::string ircchan = "#";
-
-   std::list<std::string>::const_iterator itr = m_Autobroadcasts.begin();
-   std::advance(itr, rand() % m_Autobroadcasts.size());
-   msg = *itr;
-
-   ircchan += sIRC._irc_chan[sIRC.anchn].c_str();
-
-   sIRC.Send_IRC_Channel(ircchan, sIRC.MakeMsg("\00304,08\037/!\\\037\017\00304 Automatic System Message \00304,08\037/!\\\037\017 %s", "%s", msg.c_str()), true);
-   sLog.outString("IRCBroadcast : '%s'",msg.c_str());
-
 }
 
 void World::UpdateRealmCharCount(uint32 accountId)

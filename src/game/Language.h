@@ -896,7 +896,7 @@ enum OregonStrings
 
     // Use for custom patches             11000-11999
     LANG_AUTO_BROADCAST                 = 11000,
-  
+
     // ChatSpy
     LANG_CHATSPY_APENDED                = 11600,
     LANG_CHATSPY_CANCELLEDMASSIVE       = 11601,

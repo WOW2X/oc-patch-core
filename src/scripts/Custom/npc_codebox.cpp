@@ -218,7 +218,6 @@ bool GossipSelectWithCode_npc_codebox( Player *player, Creature *_Creature, uint
 void AddSC_npc_codebox()
 {
     Script *newscript;
-
     newscript = new Script;
     newscript->Name="npc_codebox";
     newscript->pGossipHello =           &GossipHello_npc_codebox;

@@ -76,7 +76,6 @@ bool GossipSelectWithCode_npc_door_codes( Player *player, Creature *pCreature, u
 void AddSC_npc_door_codes()
 {
     Script *newscript;
-
     newscript = new Script;
     newscript->Name="npc_door_codes";
     newscript->pGossipHello =           &GossipHello_npc_door_codes;
@@ -85,5 +84,4 @@ void AddSC_npc_door_codes()
     newscript->RegisterSelf();
     
 }
-
 

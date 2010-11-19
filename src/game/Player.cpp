@@ -1995,8 +1995,11 @@ void Player::Regenerate(Powers power)
             addvalue = 30 * RageDecreaseRate;               // 3 rage by tick
         }   break;
         case POWER_ENERGY:                                  // Regenerate energy (rogue)
-            addvalue = 20;
+        {
+            float EnergyIncreaseRate = sWorld.getRate(RATE_POWER_ENERGY);
+            addvalue = 20 * EnergyIncreaseRate;
             break;
+        }
         case POWER_FOCUS:
         case POWER_HAPPINESS:
             break;
@@ -6251,7 +6254,7 @@ bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor, bool pvpt
 
     uint64 victim_guid = 0;
     uint32 victim_rank = 0;
-	uint32 rank_diff = 0;
+    uint32 rank_diff = 0;
     time_t now = time(NULL);
 
     // need call before fields update to have chance move yesterday data to appropriate fields before today data change.
@@ -14670,18 +14673,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
     SetDifficulty(fields[39].GetUInt32());                  // may be changed in _LoadGroup
     std::string taxi_nodes = fields[38].GetCppString();
 
-#define RelocateToHomebind()
-{
-    mapId = m_homebindMapId;
-    instanceId = 0;
-    Relocate(m_homebindX, m_homebindY, m_homebindZ);
-
-    if (!sWorld.getConfig(CONFIG_BATTLEGROUND_WRATH_LEAVE_MODE))
-    {
-        m_movementInfo.ClearTransportData();
-        transGUID = 0;
-    }
-}
+#define RelocateToHomebind() { mapId = m_homebindMapId; instanceId = 0; Relocate(m_homebindX, m_homebindY, m_homebindZ); if (!sWorld.getConfig(CONFIG_BATTLEGROUND_WRATH_LEAVE_MODE)) { m_movementInfo.ClearTransportData(); transGUID = 0; } }
 
     _LoadGroup(holder->GetResult(PLAYER_LOGIN_QUERY_LOADGROUP));
 
@@ -16342,8 +16334,6 @@ void Player::SaveToDB()
     SetUInt32Value(UNIT_FIELD_FLAGS, tmp_flags);
     SetUInt32Value(PLAYER_FLAGS, tmp_pflags);
 
-    _SaveStats();	
-
     // save pet (hunter pet level and experience and all type pets health/mana).
     if (Pet* pet = GetPet())
         pet->SavePetToDB(PET_SAVE_AS_CURRENT);
@@ -16669,54 +16659,6 @@ void Player::_SaveTutorials()
     };
 
     m_TutorialsChanged = false;
-}
-
-// save player stats -- only for external usage
-// real stats will be recalculated on player login
-void Player::_SaveStats()
-{
-    CharacterDatabase.PExecute("DELETE FROM character_stats WHERE guid = '%u'", GetGUIDLow());
-    std::ostringstream ss;
-    ss << "INSERT INTO character_stats (guid, maxhealth, maxmana, "
-        "strength, agility, stamina, intellect, spirit, armor, resHoly, resFire, resNature, resFrost, resShadow, resArcane, "
-        "blockPct, dodgePct, parryPct, critPct, rangedCritPct, spellCritPct, attackPower, rangedAttackPower, minDamage, "
-        "maxDamage, minOffhandDamage, maxOffhandDamage, minRangedDamage, maxRangedDamage, attackTime, rangedAttackTime, "
-        "totalHonorKills, honorPoints, arenaPoints ) VALUES ("
-        << GetGUIDLow() << ", "
-        << GetMaxHealth() << ", "
-        << GetMaxPower(POWER_MANA) << ", "
-        << GetStat(STAT_STRENGTH) << ", "
-        << GetStat(STAT_AGILITY) << ", "
-        << GetStat(STAT_STAMINA) << ", "
-        << GetStat(STAT_INTELLECT) << ", "
-        << GetStat(STAT_SPIRIT) << ", "
-        << GetArmor() << ", "
-        << GetResistance(SPELL_SCHOOL_HOLY) << ", "
-        << GetResistance(SPELL_SCHOOL_FIRE) << ", "
-        << GetResistance(SPELL_SCHOOL_NATURE) << ", "
-        << GetResistance(SPELL_SCHOOL_FROST) << ", "
-        << GetResistance(SPELL_SCHOOL_SHADOW) << ", "
-        << GetResistance(SPELL_SCHOOL_ARCANE) << ", "
-        << GetFloatValue(PLAYER_BLOCK_PERCENTAGE) << ", "
-        << GetFloatValue(PLAYER_DODGE_PERCENTAGE) << ", "
-        << GetFloatValue(PLAYER_PARRY_PERCENTAGE) << ", "
-        << GetFloatValue(PLAYER_CRIT_PERCENTAGE) << ", "
-        << GetFloatValue(PLAYER_RANGED_CRIT_PERCENTAGE) << ", "
-        << GetFloatValue(PLAYER_SPELL_CRIT_PERCENTAGE1) << ", "
-        << GetUInt32Value(UNIT_FIELD_ATTACK_POWER) << ", "
-        << GetUInt32Value(UNIT_FIELD_RANGED_ATTACK_POWER) << ", "
-        << GetFloatValue(UNIT_FIELD_MINDAMAGE) << ", "
-        << GetFloatValue(UNIT_FIELD_MAXDAMAGE) << ", "
-        << GetFloatValue(UNIT_FIELD_MINOFFHANDDAMAGE) << ", "
-        << GetFloatValue(UNIT_FIELD_MAXOFFHANDDAMAGE) << ", "
-        << GetFloatValue(UNIT_FIELD_MINRANGEDDAMAGE) << ", "
-        << GetFloatValue(UNIT_FIELD_MAXRANGEDDAMAGE) << ", "
-        << GetAttackTime(BASE_ATTACK) << ", "
-        << GetAttackTime(RANGED_ATTACK) << ", "
-        << GetUInt32Value(PLAYER_FIELD_KILLS) << ", "
-        << GetHonorPoints() << ", "
-        << GetArenaPoints() << ")"; 
-    CharacterDatabase.Execute(ss.str().c_str());
 }
 
 void Player::outDebugValues() const
@@ -17306,9 +17248,6 @@ void Player::Whisper(const std::string& text, uint32 language,uint64 receiver)
         language = LANG_UNIVERSAL;                          // whispers should always be readable
 
     Player *rPlayer = objmgr.GetPlayer(receiver);
-
-    if (!rPlayer || !rPlayer->GetSession() || !GetSession())
-        return;
 
     if (sWorld.getConfig(CONFIG_CHATLOG_WHISPER))
         sLog.outChat("[WHISPER] Player %s tells %s: %s",

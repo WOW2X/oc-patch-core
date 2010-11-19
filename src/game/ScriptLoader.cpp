@@ -7,22 +7,18 @@
 #ifdef SCRIPTS
 
 #include "../scripts/Custom/sc_npc_teleport.h"
-  
-// custom
-void AddSC_item_teleport();
-void AddSC_item_summonnpc();
-void AddSC_npc_teleport();
-void AddSC_npc_tokens();
-void AddSC_npc_guildmaster();
-void AddSC_npc_door_codes();
-void AddSC_npc_codebox();
-void AddSC_npc_buff();
-void AddSC_npc_heal();
-void AddSC_npc_areaguard();
-void AddSC_npc_rename();
 
 //custom
-void AddSC_npc_rename();
+void AddSC_npc_areaguard();
+void AddSC_npc_buff();
+void AddSC_npc_heal();
+void AddSC_npc_codebox();
+void AddSC_npc_door_codes();
+void AddSC_npc_guildmaster();
+void AddSC_item_summonnpc();
+void AddSC_item_teleport();
+void AddSC_npc_teleport();
+void AddSC_npc_tokens();
 
 //examples
 //void AddSC_custom_example();
@@ -395,19 +391,18 @@ void AddScripts()
 #ifdef SCRIPTS
 
     //Custom
-    AddSC_item_teleport();
-    AddSC_item_summonnpc();
     AddSC_npc_teleport();
     QueryResult_AutoPtr result;
     LoadNpcTele(result);
-    AddSC_npc_tokens();
-    AddSC_npc_guildmaster();
-    AddSC_npc_door_codes();
-    AddSC_npc_codebox();
+    AddSC_npc_areaguard();
     AddSC_npc_buff();
     AddSC_npc_heal();
-    AddSC_npc_areaguard();
-    AddSC_npc_rename();
+    AddSC_npc_codebox();
+    AddSC_npc_door_codes();
+    AddSC_npc_guildmaster();
+    AddSC_item_summonnpc();
+    AddSC_item_teleport();
+    AddSC_npc_tokens();
 
 //    AddSC_custom_example();
 //    AddSC_custom_gossip_codebox();

@@ -6,6 +6,6 @@ INSERT INTO `instance_template` (`map`, `parent`, `maxPlayers`, `reset_delay`, `
 
 -- Data for table `game_tele`
 
-INSERT INTO `game_tele` (`id`, `position_x`, `position_y`, `position_z`, `orientation`, `map`, `name`) VALUES
-(1935, -2604.74, -2077.5, 126.758, 0.677952, 169, 'emeralddream');
+INSERT INTO `game_tele` (`position_x`, `position_y`, `position_z`, `orientation`, `map`, `name`) VALUES
+( -2604.74, -2077.5, 126.758, 0.677952, 169, 'emeralddream');
 
