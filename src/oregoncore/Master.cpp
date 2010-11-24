@@ -149,7 +149,7 @@ public:
             }
         }
 
-        // Socket Selet time is in microseconds , not miliseconds!!
+        // Socket Select time is in microseconds , not miliseconds!!
         uint32 socketSelecttime = sWorld.getConfig (CONFIG_SOCKET_SELECTTIME);
 
         // if use ra spend time waiting for io, if not use ra ,just sleep
@@ -334,7 +334,7 @@ int Master::Run()
         // go down and shutdown the server
     }
 
-    sWorldSocketMgr->Wait ();
+    sWorldSocketMgr->Wait();
 
     ///- Stop freeze protection before shutdown tasks
     if (freeze_thread)
