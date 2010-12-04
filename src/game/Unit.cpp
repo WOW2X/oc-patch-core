@@ -1941,7 +1941,7 @@ void Unit::CalcAbsorbResist(Unit *pVictim, SpellSchoolMask schoolMask, DamageEff
         if (Player *modOwner = GetSpellModOwner())
             modOwner->ApplySpellMod((*i)->GetId(), SPELLMOD_MULTIPLE_VALUE, manaMultiplier);
 
-        if(manaMultiplier)
+        if (manaMultiplier)
         {
             int32 maxAbsorb = int32(pVictim->GetPower(POWER_MANA) / manaMultiplier);
             if (currentAbsorb > maxAbsorb)
@@ -8312,16 +8312,16 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
     if (PvP)
         m_CombatTimer = 5000;
 
-    if(isInCombat())
+    if (isInCombat())
         return;
 
     SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
 
-    if(GetTypeId() == TYPEID_PLAYER)
+    if (GetTypeId() == TYPEID_PLAYER)
     {
         if (m_currentSpells[CURRENT_GENERIC_SPELL] && m_currentSpells[CURRENT_GENERIC_SPELL]->getState() != SPELL_STATE_FINISHED)
         {
-            if(m_currentSpells[CURRENT_GENERIC_SPELL]->m_spellInfo->Attributes & SPELL_ATTR_CANT_USED_IN_COMBAT)
+            if (m_currentSpells[CURRENT_GENERIC_SPELL]->m_spellInfo->Attributes & SPELL_ATTR_CANT_USED_IN_COMBAT)
                 InterruptSpell(CURRENT_GENERIC_SPELL);
         }
 
@@ -8335,9 +8335,9 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
             GetMotionMaster()->GetCurrentMovementGeneratorType() == POINT_MOTION_TYPE)
             ToCreature()->SetHomePosition(GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
 
-         if(enemy)
+         if (enemy)
          {
-            if(IsAIEnabled && ToCreature()->AI())
+            if (IsAIEnabled && ToCreature()->AI())
                 ToCreature()->AI()->EnterCombat(enemy);
 
             if (ToCreature()->GetFormation())
@@ -8346,7 +8346,7 @@ void Unit::SetInCombatState(bool PvP, Unit* enemy)
             RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_OOC_NOT_ATTACKABLE);
         }
 
-        if(ToCreature()->isPet())
+        if (ToCreature()->isPet())
         {
             UpdateSpeed(MOVE_RUN, true);
             UpdateSpeed(MOVE_SWIM, true);
@@ -8604,24 +8604,6 @@ bool Unit::canDetectStealthOf(Unit const* target, float distance) const
     visibleDistance = visibleDistance > MAX_PLAYER_STEALTH_DETECT_RANGE ? MAX_PLAYER_STEALTH_DETECT_RANGE : visibleDistance;
 
     return distance < visibleDistance;
-}
-
-void Unit::DestroyForNearbyPlayers()
-{
-    if (!IsInWorld())
-        return;
-
-    std::list<Unit*> targets;
-    Oregon::AnyUnitInObjectRangeCheck check(this, GetMap()->GetVisibilityDistance());
-    Oregon::UnitListSearcher<Oregon::AnyUnitInObjectRangeCheck> searcher(targets, check);
-    VisitNearbyWorldObject(GetMap()->GetVisibilityDistance(), searcher);
-    for (std::list<Unit*>::iterator iter = targets.begin(); iter != targets.end(); ++iter)
-        if (*iter != this && (*iter)->GetTypeId() == TYPEID_PLAYER
-            && ((*iter)->ToPlayer())->HaveAtClient(this))
-        {
-            DestroyForPlayer((*iter)->ToPlayer());
-            ((*iter)->ToPlayer())->m_clientGUIDs.erase(GetGUID());
-        }
 }
 
 void Unit::SetVisibility(UnitVisibility x)
@@ -10631,11 +10613,6 @@ void Unit::StopMoving()
     Relocate(GetPositionX(), GetPositionY(),GetPositionZ());
 
     SendMonsterStop();
-
-    // update position and orientation for near players
-    WorldPacket data;
-    BuildHeartBeatMsg(&data);
-    SendMessageToSet(&data, false);
 }
 
 void Unit::SendMovementFlagUpdate()

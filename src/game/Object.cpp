@@ -1078,7 +1078,7 @@ bool Object::PrintIndexError(uint32 index, bool set) const
 
 bool Position::HasInLine(const Unit * const target, float distance, float width) const
 {
-    if(!HasInArc(M_PI, target) || !target->IsWithinDist3d(m_positionX, m_positionY, m_positionZ, distance)) return false;
+    if (!HasInArc(M_PI, target) || !target->IsWithinDist3d(m_positionX, m_positionY, m_positionZ, distance)) return false;
     width += target->GetObjectSize() * 0.5f;
     float angle = GetRelativeAngle(target);
     return abs(sin(angle)) * GetExactDist2d(target->GetPositionX(), target->GetPositionY()) < width;
@@ -1887,6 +1887,33 @@ void WorldObject::MovePosition(Position &pos, float dist, float angle)
     Oregon::NormalizeMapCoord(pos.m_positionY);
     UpdateGroundPositionZ(pos.m_positionX, pos.m_positionY, pos.m_positionZ);
     pos.m_orientation = m_orientation;
+}
+
+void WorldObject::DestroyForNearbyPlayers()
+{
+    if (!IsInWorld())
+        return;
+
+    std::list<Player*> targets;
+    Oregon::AnyPlayerInObjectRangeCheck check(this, GetMap()->GetVisibilityDistance());
+    Oregon::PlayerListSearcher<Oregon::AnyPlayerInObjectRangeCheck> searcher(targets, check);
+    VisitNearbyWorldObject(GetMap()->GetVisibilityDistance(), searcher);
+    for (std::list<Player*>::const_iterator iter = targets.begin(); iter != targets.end(); ++iter)
+    {
+        Player *plr = (*iter);
+
+        if (plr == this)
+            continue;
+
+        if (!plr->HaveAtClient(this))
+            continue;
+
+        if (isType(TYPEMASK_UNIT) && ((Unit*)this)->GetCharmerGUID() == plr->GetGUID()) // TODO: this is for puppet
+            continue;
+
+        DestroyForPlayer(plr);
+        plr->m_clientGUIDs.erase(GetGUID());
+    }
 }
 
 void WorldObject::UpdateObjectVisibility(bool /*forced*/)

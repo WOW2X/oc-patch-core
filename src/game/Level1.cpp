@@ -737,9 +737,9 @@ bool ChatHandler::HandleGPSCommand(const char* args)
     uint32 have_map = Map::ExistMap(obj->GetMapId(),gx,gy) ? 1 : 0;
     uint32 have_vmap = Map::ExistVMap(obj->GetMapId(),gx,gy) ? 1 : 0;
 
-    if(have_vmap)
+    if (have_vmap)
     {
-        if(map->IsOutdoors(obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ()))
+        if (map->IsOutdoors(obj->GetPositionX(), obj->GetPositionY(), obj->GetPositionZ()))
             PSendSysMessage("You are outdoors");
         else
             PSendSysMessage("You are indoor");
@@ -1610,7 +1610,7 @@ bool ChatHandler::HandleModifyFlyCommand(const char* args)
 
     float modSpeed = (float)atof((char*)args);
 
-    if (modSpeed > 10.0f || modSpeed < 0.1f)
+    if (modSpeed > 50.0f || modSpeed < 0.1f)
     {
         SendSysMessage(LANG_BAD_VALUE);
         SetSentErrorMessage(true);
