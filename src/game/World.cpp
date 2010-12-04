@@ -3273,14 +3273,12 @@ void World::SendAutoBroadcast()
     if (abcenter == 0)
     {
         sWorld.SendWorldText(LANG_AUTO_BROADCAST, msg.c_str());
-        sLog.outString("AutoBroadcast: '%s'",msg.c_str());
     }
     if (abcenter == 1)
     {
         WorldPacket data(SMSG_NOTIFICATION, (msg.size()+1));
         data << msg;
         sWorld.SendGlobalMessage(&data);
-        sLog.outString("AutoBroadcast: '%s'",msg.c_str());
     }
     if (abcenter == 2)
     {
@@ -3288,7 +3286,6 @@ void World::SendAutoBroadcast()
         WorldPacket data(SMSG_NOTIFICATION, (msg.size()+1));
         data << msg;
         sWorld.SendGlobalMessage(&data);
-        sLog.outString("AutoBroadcast: '%s'",msg.c_str());
     }
     if ( sIRC.Active )
     { 
