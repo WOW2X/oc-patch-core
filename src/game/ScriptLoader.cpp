@@ -20,6 +20,8 @@ void AddSC_npc_codebox();
 void AddSC_npc_door_codes();
 void AddSC_npc_guildmaster();
 void AddSC_npc_heal();
+void AddSC_npc_rename();
+void AddSC_npc_rentalmount();
 void AddSC_npc_teleport();
 void AddSC_npc_tokens();
 void AddSC_item_summonnpc();
@@ -403,6 +405,8 @@ void AddScripts()
     AddSC_npc_door_codes();
     AddSC_npc_guildmaster();
     AddSC_npc_heal();
+    AddSC_npc_rename();
+    AddSC_npc_rentalmount();
     AddSC_npc_teleport();
     QueryResult_AutoPtr result;
     LoadNpcTele(result);

@@ -11,8 +11,6 @@ EndScriptData */
 extern DatabaseType WorldDatabase;
 
 #define MSG_GOSSIP_TELE          "Teleport to Guild House"
-#define MSG_GOSSIP_BUY           "Buy Guild House"
-#define MSG_GOSSIP_SELL          "Sell Guild House"
 #define MSG_GOSSIP_NEXTPAGE      "Next -->"
 #define MSG_INCOMBAT             "You are in battle!"
 #define MSG_NOGUILDHOUSE         "Your guild does not have a Guild House."
@@ -228,7 +226,7 @@ void sellGuildhouse(Player *player, Creature *_creature)
 
         //display message e.g. "here your money etc."
         char msg[100];
-        sprintf(msg, MSG_SOLD, sellprice / 10000);
+        sprintf(msg, MSG_SOLD, (sellprice/10000));
         _creature->MonsterWhisper(msg, player->GetGUID());
     }
 }
@@ -240,13 +238,23 @@ bool GossipHello_npc_guildmaster(Player *player, Creature *_creature)
 
     if (isPlayerGuildLeader(player))
     {
-        //show additional menu for guild leader
-        player->ADD_GOSSIP_ITEM(ICON_GOSSIP_GOLD, MSG_GOSSIP_BUY,
-            GOSSIP_SENDER_MAIN, ACTION_SHOW_BUYLIST);
+        uint8 buyEnabled = sConfig.GetIntDefault("GuildMasterNPC.BuyEnabled", 1);
+        if ( buyEnabled == 1 )
+        {
+            //show additional menu for guild leader
+            std::string buyGHGossip = sConfig.GetStringDefault("GuildMasterNPC.BuyGossip", "Buy a Guild House for 500 Gold");
+            player->ADD_GOSSIP_ITEM(ICON_GOSSIP_GOLD, buyGHGossip,
+                GOSSIP_SENDER_MAIN, ACTION_SHOW_BUYLIST);
+        }
         if (isPlayerHasGuildhouse(player, _creature))
         {
-            //and additional for guildhouse owner
-            player->PlayerTalkClass->GetGossipMenu().AddMenuItem(ICON_GOSSIP_GOLD, MSG_GOSSIP_SELL, GOSSIP_SENDER_MAIN, ACTION_SELL_GUILDHOUSE, MSG_CODEBOX_SELL, 0, true);
+            uint8 sellEnabled = sConfig.GetIntDefault("GuildMasterNPC.SellEnabled", 1);
+            if ( sellEnabled == 1 )
+            {
+                //and additional for guildhouse owner
+                std::string sellGHGossip = sConfig.GetStringDefault("GuildMasterNPC.SellGossip", "Sell your Guild House for 400 Gold");
+                player->PlayerTalkClass->GetGossipMenu().AddMenuItem(ICON_GOSSIP_GOLD, sellGHGossip, GOSSIP_SENDER_MAIN, ACTION_SELL_GUILDHOUSE, MSG_CODEBOX_SELL, 0, true);
+            }
         }
     }
     player->SEND_GOSSIP_MENU(DEFAULT_GOSSIP_MESSAGE, _creature->GetGUID());
