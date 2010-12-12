@@ -1,8 +1,9 @@
 /*
-
  * Copyright (C) 2005-2008 MaNGOS <http://www.mangosproject.org/>
  *
  * Copyright (C) 2008 Trinity <http://www.trinitycore.org/>
+ *
+ * Copyright (C) 2010 Oregon <http://www.oregoncore.com/>
  *
  * Copyright (C) 2010 Oregon <http://www.oregoncore.com>
  * This program is free software; you can redistribute it and/or modify
@@ -527,7 +528,7 @@ bool Player::Create(uint32 guidlow, const std::string& name, uint8 race, uint8 c
     PlayerInfo const* info = objmgr.GetPlayerInfo(race, class_);
     if (!info)
     {
-        sLog.outError("Player have incorrect race/class pair. Can't be loaded.");
+        sLog.outError("Player has incorrect race/class pair. Not loaded.");
         return false;
     }
 
@@ -1008,7 +1009,7 @@ void Player::HandleDrowning(uint32 time_diff)
     m_MirrorTimerFlagsLast = m_MirrorTimerFlags;
 }
 
-///The player sobers by 256 every 10 seconds
+// The player sobers by 256 every 10 seconds
 void Player::HandleSobering()
 {
     m_drunkTimer = 0;
@@ -1881,9 +1882,9 @@ void Player::ProcessDelayedOperations()
 
 void Player::AddToWorld()
 {
-    ///- Do not add/remove the player from the object storage
-    ///- It will crash when updating the ObjectAccessor
-    ///- The player should only be added when logging in
+    // Do not add/remove the player from the object storage
+    // It will crash when updating the ObjectAccessor
+    // The player should only be added when logging in
     Unit::AddToWorld();
 
     for (uint8 i = PLAYER_SLOT_START; i < PLAYER_SLOT_END; ++i)
@@ -1896,7 +1897,7 @@ void Player::RemoveFromWorld()
     // cleanup
     if (IsInWorld())
     {
-        ///- Release charmed creatures, unsummon totems and remove pets/guardians
+        // Release charmed creatures, unsummon totems and remove pets/guardians
         StopCastingCharm();
         StopCastingBindSight();
         UnsummonAllTotems();
@@ -1909,9 +1910,9 @@ void Player::RemoveFromWorld()
     // otherwise there will be an existing duel flag pointer but no entry in m_gameObj
     DuelComplete(DUEL_INTERUPTED);
 
-    ///- Do not add/remove the player from the object storage
-    ///- It will crash when updating the ObjectAccessor
-    ///- The player should only be removed when logging out
+    // Do not add/remove the player from the object storage
+    // It will crash when updating the ObjectAccessor
+    // The player should only be removed when logging out
     Unit::RemoveFromWorld();
 
     for (uint8 i = PLAYER_SLOT_START; i < PLAYER_SLOT_END; ++i)
@@ -2247,8 +2248,8 @@ bool Player::IsInSameGroupWith(Player const* p) const
         GetGroup()->SameSubGroup(this, p));
 }
 
-///- If the player is invited, remove him. If the group if then only 1 person, disband the group.
-/// \todo Shouldn't we also check if there is no other invitees before disbanding the group?
+// If the player is invited, remove him. If the group if then only 1 person, disband the group.
+// todo Shouldn't we also check if there is no other invitees before disbanding the group?
 void Player::UninviteFromGroup()
 {
     Group* group = GetGroupInvite();
@@ -2755,11 +2756,11 @@ bool Player::addSpell(uint32 spell_id, bool active, bool learning, bool loading,
         // do character spell book cleanup (all characters)
         if (loading && !learning)                            // spell load case
         {
-            sLog.outError("Player::addSpell: Non-existed in SpellStore spell #%u request, deleting for all characters in character_spell.",spell_id);
+            sLog.outError("Player::addSpell: Invalid SpellStore spell #%u request, deleting for all characters in character_spell.",spell_id);
             CharacterDatabase.PExecute("DELETE FROM character_spell WHERE spell = '%u'",spell_id);
         }
         else
-            sLog.outError("Player::addSpell: Non-existed in SpellStore spell #%u request.",spell_id);
+            sLog.outError("Player::addSpell: Invalid SpellStore spell #%u request.",spell_id);
 
         return false;
     }
@@ -3296,7 +3297,7 @@ void Player::_LoadSpellCooldowns(QueryResult_AutoPtr result)
 
             if (!sSpellStore.LookupEntry(spell_id))
             {
-                sLog.outError("Player %u have unknown spell %u in character_spell_cooldown, skipping.",GetGUIDLow(),spell_id);
+                sLog.outError("Player %u has unknown spell %u in character_spell_cooldown, skipping.",GetGUIDLow(),spell_id);
                 continue;
             }
 
@@ -4524,7 +4525,7 @@ void Player::HandleBaseModValue(BaseModGroup modGroup, BaseModType modType, floa
 {
     if (modGroup >= BASEMOD_END || modType >= MOD_END)
     {
-        sLog.outError("ERROR in HandleBaseModValue(): non existed BaseModGroup of wrong BaseModType!");
+        sLog.outError("ERROR in HandleBaseModValue(): Invalid BaseModGroup or invalid BaseModType!");
         return;
     }
 
@@ -4561,7 +4562,7 @@ float Player::GetBaseModValue(BaseModGroup modGroup, BaseModType modType) const
 {
     if (modGroup >= BASEMOD_END || modType > MOD_END)
     {
-        sLog.outError("trial to access non existed BaseModGroup or wrong BaseModType!");
+        sLog.outError("GetBaseModType: Invalid BaseModGroup or invalid BaseModType!");
         return 0.0f;
     }
 
@@ -5175,13 +5176,13 @@ void Player::UpdateSkillsForLevel()
         uint32 max = SKILL_MAX(data);
         uint32 val = SKILL_VALUE(data);
 
-        /// update only level dependent max skill values
+        // update only level dependent max skill values
         if (max != 1)
         {
-            /// miximize skill always
+            // miximize skill always
             if (alwaysMaxSkill)
                 SetUInt32Value(PLAYER_SKILL_VALUE_INDEX(i),MAKE_SKILL_VALUE(maxSkill,maxSkill));
-            /// update max skill value if current max skill not maximized
+            // update max skill value if current max skill not maximized
             else if (max != maxconfskill)
                 SetUInt32Value(PLAYER_SKILL_VALUE_INDEX(i),MAKE_SKILL_VALUE(val,maxSkill));
         }
@@ -5670,7 +5671,7 @@ uint32 Player::TeamForRace(uint8 race)
         case 1: return HORDE;
     }
 
-    sLog.outError("Race %u have wrong team id in DBC: wrong DBC files?",uint32(race),rEntry->TeamID);
+    sLog.outError("Race %u has wrong team id in DBC: wrong DBC files?",uint32(race),rEntry->TeamID);
     return ALLIANCE;
 }
 
@@ -6211,7 +6212,7 @@ void Player::UpdateArenaFields(void)
 
 void Player::UpdateHonorFields()
 {
-    /// called when rewarding honor and at each save
+    // called when rewarding honor and at each save
     uint64 now = time(NULL);
     uint64 today = uint64(time(NULL) / DAY) * DAY;
 
@@ -6241,9 +6242,9 @@ void Player::UpdateHonorFields()
     m_lastHonorUpdateTime = now;
 }
 
-///Calculate the amount of honor gained based on the victim
-///and the size of the group for which the honor is divided
-///An exact honor value can also be given (overriding the calcs)
+// Calculate the amount of honor gained based on the victim
+// and the size of the group for which the honor is divided
+// An exact honor value can also be given (overriding the calcs)
 bool Player::RewardHonor(Unit *uVictim, uint32 groupsize, float honor, bool pvptoken)
 {
     // do not reward honor in arenas, but enable onkill spellproc
@@ -6838,6 +6839,30 @@ void Player::DuelComplete(DuelCompleteType type)
     // Honor points after duel (the winner) - ImpConfig
     if (uint32 amount = sWorld.getConfig(CONFIG_HONOR_AFTER_DUEL))
         duel->opponent->RewardHonor(NULL,1,amount);
+
+    // Gold after duel (the winner) - ImpConfig
+    if(uint32 amount = sWorld.getConfig(CONFIG_GOLD_AFTER_DUEL))
+    {
+        int copper = amount * 10000;
+ 
+        // set string varables
+        int buffer;
+        char const *duelwincstr;
+        char const *duelosecstr;
+        std::stringstream ss;
+ 
+        // create chat message
+        ss << "You receive " << amount << " Gold for conquering " << GetName() << " in a duel!";
+ 
+        // convert string to const chr
+        std::string duelwinstr = ss.str();
+        duelwincstr = duelwinstr.c_str();
+        // give player gold
+        duel->opponent->ModifyMoney(copper);
+ 
+        // send chat message
+        ChatHandler(duel->opponent).SendSysMessage(duelwincstr);
+    }
 
     //cleanups
     SetUInt64Value(PLAYER_DUEL_ARBITER, 0);
@@ -12473,7 +12498,7 @@ void Player::PrepareGossipMenu(WorldObject *pSource, uint32 menuId)
                     VendorItemData const* vItems = pCreature->GetVendorItems();
                     if (!vItems || vItems->Empty())
                     {
-                        sLog.outErrorDb("Creature %u (Entry: %u) have UNIT_NPC_FLAG_VENDOR but have empty trading item list.", pCreature->GetGUIDLow(), pCreature->GetEntry());
+                        sLog.outErrorDb("Creature %u (Entry: %u) has UNIT_NPC_FLAG_VENDOR but has empty trading item list.", pCreature->GetGUIDLow(), pCreature->GetEntry());
                         hasMenuItem = false;
                     }
                     break;
@@ -12514,7 +12539,7 @@ void Player::PrepareGossipMenu(WorldObject *pSource, uint32 menuId)
                         hasMenuItem = false;
                     break;
                 default:
-                    sLog.outErrorDb("Creature entry %u have unknown gossip option %u for menu %u", pCreature->GetEntry(), itr->second.option_id, itr->second.menu_id);
+                    sLog.outErrorDb("Creature entry %u has unknown gossip option %u for menu %u", pCreature->GetEntry(), itr->second.option_id, itr->second.menu_id);
                     hasMenuItem = false;
                     break;
             }
@@ -14626,7 +14651,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
 
     if (!LoadValues(fields[2].GetString()))
     {
-        sLog.outError("Player #%d have broken data in data field. Can't be loaded.",GUID_LOPART(guid));
+        sLog.outError("Player #%d has invalid data in data field. Not loaded.",GUID_LOPART(guid));
         return false;
     }
 
@@ -14717,7 +14742,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
     MapEntry const * mapEntry = sMapStore.LookupEntry(mapId);
     if (!mapEntry || !IsPositionValid())
     {
-        sLog.outError("Player (guidlow %d) have invalid coordinates (MapId: %u X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",guid,mapId,GetPositionX(),GetPositionY(),GetPositionZ(),GetOrientation());
+        sLog.outError("Player (guidlow %d) has invalid coordinates (MapId: %u X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",guid,mapId,GetPositionX(),GetPositionY(),GetPositionZ(),GetOrientation());
         RelocateToHomebind();
     }
     // Player was saved in Arena or Bg
@@ -14776,7 +14801,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
             // transport size limited
             m_movementInfo.GetTransportPos()->GetPositionX() > 50 || m_movementInfo.GetTransportPos()->GetPositionY() > 50 || m_movementInfo.GetTransportPos()->GetPositionZ() > 50)
         {
-            sLog.outError("Player (guidlow %d) have invalid transport coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",
+            sLog.outError("Player (guidlow %d) has invalid transport coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",
                 guid, GetPositionX() + m_movementInfo.GetTransportPos()->GetPositionX(), GetPositionY() + m_movementInfo.GetTransportPos()->GetPositionY(),
                 GetPositionZ() + m_movementInfo.GetTransportPos()->GetPositionZ(), GetOrientation() + m_movementInfo.GetTransportPos()->GetOrientation());
 
@@ -14797,7 +14822,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
 
             if (!m_transport)
             {
-                sLog.outError("Player (guidlow %d) have invalid transport guid (%u). Teleport to default race/class locations.",
+                sLog.outError("Player (guidlow %d) has invalid transport guid (%u). Teleport to default race/class locations.",
                     guid,transGUID);
 
                 RelocateToHomebind();
@@ -14824,12 +14849,12 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
 
             if (!nodeEntry)                                      // don't know taxi start node, to homebind
             {
-                sLog.outError("Character %u have wrong data in taxi destination list, teleport to homebind.",GetGUIDLow());
+                sLog.outError("Character %u has invalid data in taxi destination list, teleport to homebind.",GetGUIDLow());
                 RelocateToHomebind();
             }
             else                                                // have start node, to it
             {
-                sLog.outError("Character %u have too short taxi destination list, teleport to original node.",GetGUIDLow());
+                sLog.outError("Character %u has truncated taxi destination list, teleport to original node.",GetGUIDLow());
                 mapId = nodeEntry->map_id;
                 Relocate(nodeEntry->x, nodeEntry->y, nodeEntry->z,0.0f);
             }
@@ -14892,7 +14917,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
             PlayerInfo const *info = objmgr.GetPlayerInfo(getRace(), getClass());
             mapId = info->mapId;
             Relocate(info->positionX,info->positionY,info->positionZ,0.0f);
-            sLog.outError("ERROR: Player (guidlow %d) have invalid coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",guid,GetPositionX(),GetPositionY(),GetPositionZ(),GetOrientation());
+            sLog.outError("ERROR: Player (guidlow %d) has invalid coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",guid,GetPositionX(),GetPositionY(),GetPositionZ(),GetOrientation());
             map = MapManager::Instance().CreateMap(mapId, this, 0);
             if (!map)
             {
@@ -14974,7 +14999,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
     m_stableSlots = fields[33].GetUInt32();
     if (m_stableSlots > 2)
     {
-        sLog.outError("Player can have not more 2 stable slots, but have in DB %u",uint32(m_stableSlots));
+        sLog.outError("Player can have not more 2 stable slots, but has %u in DB.",uint32(m_stableSlots));
         m_stableSlots = 2;
     }
 
@@ -15473,7 +15498,7 @@ void Player::_LoadMailedItems(Mail *mail)
 
         if (!proto)
         {
-            sLog.outError("Player %u have unknown item_template (ProtoType) in mailed items(GUID: %u template: %u) in mail (%u), deleted.", GetGUIDLow(), item_guid_low, item_template,mail->messageID);
+            sLog.outError("Player %u has unknown item_template (ProtoType) in mailed items(GUID: %u template: %u) in mail (%u), deleted.", GetGUIDLow(), item_guid_low, item_template,mail->messageID);
             CharacterDatabase.PExecute("DELETE FROM mail_items WHERE item_guid = '%u'", item_guid_low);
             CharacterDatabase.PExecute("DELETE FROM item_instance WHERE guid = '%u'", item_guid_low);
             continue;
@@ -15541,7 +15566,7 @@ void Player::_LoadMail()
 
             if (m->mailTemplateId && !sMailTemplateStore.LookupEntry(m->mailTemplateId))
             {
-                sLog.outError("Player::_LoadMail - Mail (%u) have not existed MailTemplateId (%u), remove at load", m->messageID, m->mailTemplateId);
+                sLog.outError("Player::_LoadMail - Mail (%u) has invalid MailTemplateId (%u), remove at load", m->messageID, m->mailTemplateId);
                 m->mailTemplateId = 0;
             }
 
@@ -15574,7 +15599,7 @@ void Player::_LoadQuestStatus(QueryResult_AutoPtr result)
 
     uint32 slot = 0;
 
-    ////                                                            0      1       2         3         4      5          6          7          8          9           10          11          12
+    //                                                              0      1       2         3         4      5          6          7          8          9           10          11          12
     //QueryResult_AutoPtr result = CharacterDatabase.PQuery("SELECT quest, status, rewarded, explored, timer, mobcount1, mobcount2, mobcount3, mobcount4, itemcount1, itemcount2, itemcount3, itemcount4 FROM character_queststatus WHERE guid = '%u'", GetGUIDLow());
 
     if (result)
@@ -15597,7 +15622,7 @@ void Player::_LoadQuestStatus(QueryResult_AutoPtr result)
                 else
                 {
                     questStatusData.m_status = QUEST_STATUS_NONE;
-                    sLog.outError("Player %s have invalid quest %d status (%d), replaced by QUEST_STATUS_NONE(0).",GetName(),quest_id,qstatus);
+                    sLog.outError("Player %s has invalid quest %d status (%d), replaced by QUEST_STATUS_NONE(0).",GetName(),quest_id,qstatus);
                 }
 
                 questStatusData.m_rewarded = (fields[2].GetUInt8() > 0);
@@ -15689,7 +15714,7 @@ void Player::_LoadDailyQuestStatus(QueryResult_AutoPtr result)
         {
             if (quest_daily_idx >= PLAYER_MAX_DAILY_QUESTS)  // max amount with exist data in query
             {
-                sLog.outError("Player (GUID: %u) have more 25 daily quest records in charcter_queststatus_daily",GetGUIDLow());
+                sLog.outError("Player (GUID: %u) has more than 25 daily quest records in charcter_queststatus_daily",GetGUIDLow());
                 break;
             }
 
@@ -15852,7 +15877,7 @@ void Player::_LoadBoundInstances(QueryResult_AutoPtr result)
             MapEntry const* mapEntry = sMapStore.LookupEntry(mapId);
             if (!mapEntry || !mapEntry->IsDungeon())
             {
-                sLog.outError("_LoadBoundInstances: player %s(%d) has bind to not existed or not dungeon map %d", GetName(), GetGUIDLow(), mapId);
+                sLog.outError("_LoadBoundInstances: player %s(%d) has bind to invalid or non-dungeon map %d", GetName(), GetGUIDLow(), mapId);
                 CharacterDatabase.PExecute("DELETE FROM character_instance WHERE guid = '%d' AND instance = '%d'", GetGUIDLow(), instanceId);
                 continue;
             }
@@ -16018,7 +16043,7 @@ void Player::SendSavedInstances()
     }
 }
 
-/// convert the player's binds to the group
+// convert the player's binds to the group
 void Player::ConvertInstancesToGroup(Player *player, Group *group, uint64 player_guid)
 {
     bool has_binds = false;
@@ -16133,7 +16158,7 @@ bool Player::_LoadHomeBind(QueryResult_AutoPtr result)
     PlayerInfo const *info = objmgr.GetPlayerInfo(getRace(), getClass());
     if (!info)
     {
-        sLog.outError("Player have incorrect race/class pair. Can't be loaded.");
+        sLog.outError("Player has incorrect race/class pair. Not loaded.");
         return false;
     }
 
@@ -16883,7 +16908,7 @@ void Player::SendResetFailedNotify(uint32 mapid)
     GetSession()->SendPacket(&data);
 }
 
-/// Reset all solo instances and optionally send a message on success for each
+// Reset all solo instances and optionally send a message on success for each
 void Player::ResetInstances(uint8 method)
 {
     // method can be INSTANCE_RESET_ALL, INSTANCE_RESET_CHANGE_DIFFICULTY, INSTANCE_RESET_GROUP_JOIN
@@ -16952,7 +16977,7 @@ void Player::SendResetInstanceFailed(uint32 reason, uint32 MapId)
 /***              Update timers                        ***/
 /*********************************************************/
 
-///checks the 15 afk reports per 5 minutes limit
+// checks the 15 afk reports per 5 minutes limit
 void Player::UpdateAfkReport(time_t currTime)
 {
     if (m_bgData.bgAfkReportedTimer <= currTime)
@@ -18147,7 +18172,7 @@ bool Player::BuyItemFromVendor(uint64 vendorguid, uint32 item, uint8 count, uint
         ItemExtendedCostEntry const* iece = sItemExtendedCostStore.LookupEntry(crItem->ExtendedCost);
         if (!iece)
         {
-            sLog.outError("Item %u have wrong ExtendedCost field value %u", pProto->ItemId, crItem->ExtendedCost);
+            sLog.outError("Item %u has invalid ExtendedCost field value %u", pProto->ItemId, crItem->ExtendedCost);
             return false;
         }
 
@@ -18660,7 +18685,7 @@ bool Player::CanReportAfkDueToLimit()
     return true;
 }
 
-///This player has been blamed to be inactive in a battleground
+// This player has been blamed to be inactive in a battleground
 void Player::ReportedAfkBy(Player* reporter)
 {
     BattleGround *bg = GetBattleGround();
@@ -18867,13 +18892,13 @@ bool Player::IsVisibleGloballyFor(Player* u) const
 }
 
 template<class T>
-inline void UpdateVisibilityOf_helper(std::set<uint64>& s64, T* target, std::set<Unit*>& v)
+inline void UpdateVisibilityOf_helper(std::set<uint64>& s64, T* target, std::set<Unit*>& /*v*/)
 {
     s64.insert(target->GetGUID());
 }
 
 template<>
-inline void UpdateVisibilityOf_helper(std::set<uint64>& s64, GameObject* target, std::set<Unit*>& v)
+inline void UpdateVisibilityOf_helper(std::set<uint64>& s64, GameObject* target, std::set<Unit*>& /*v*/)
 {
     if (!target->IsTransport())
         s64.insert(target->GetGUID());
@@ -19854,7 +19879,7 @@ void Player::RewardPlayerAndGroupAtKill(Unit* pVictim)
             // also no XP gained if there is no member below gray level
             xp = (PvP || !not_gray_member_with_max_level) ? 0 : Oregon::XP::Gain(not_gray_member_with_max_level, pVictim);
 
-            /// skip in check PvP case (for speed, not used)
+            // skip in check PvP case (for speed, not used)
             bool is_raid = PvP ? false : sMapStore.LookupEntry(GetMapId())->IsRaid() && pGroup->isRaidGroup();
             bool is_dungeon = PvP ? false : sMapStore.LookupEntry(GetMapId())->IsDungeon();
             float group_rate = Oregon::XP::xp_in_group_rate(count,is_raid);
@@ -20635,3 +20660,4 @@ void Player::SetMap(Map * map)
     Unit::SetMap(map);
     m_mapRef.link(map, this);
 }
+

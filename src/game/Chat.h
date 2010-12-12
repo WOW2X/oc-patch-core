@@ -3,6 +3,8 @@
  *
  * Copyright (C) 2008 Trinity <http://www.trinitycore.org/>
  *
+ * Copyright (C) 2010 Oregon <http://www.oregoncore.com/>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -311,6 +313,12 @@ class ChatHandler
         bool HandleServerIdleRestartCommand(const char* args);
         bool HandleServerIdleShutDownCommand(const char* args);
         bool HandleServerInfoCommand(const char* args);
+        bool HandleServerVersionCommand(const char* args);
+        bool HandleServerRevCommand(const char* args);
+        bool HandleServerDBVersionCommand(const char* args);
+        bool HandleServerUptimeCommand(const char* args);
+        bool HandleServerPlayerCountCommand(const char* args);
+        bool HandleServerPlayersCommand(const char* args);
         bool HandleServerMotdCommand(const char* args);
         bool HandleServerPLimitCommand(const char* args);
         bool HandleServerRestartCommand(const char* args);

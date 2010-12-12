@@ -6,12 +6,13 @@ SDCategory: NPC
 EndScriptData */
 
 #include "ScriptPCH.h"
+#include "Config/Config.h"
 
 extern DatabaseType WorldDatabase;
 
 #define MSG_GOSSIP_TELE          "Teleport to Guild House"
-#define MSG_GOSSIP_BUY           "Buy Guild House (500 gold)"
-#define MSG_GOSSIP_SELL          "Sell Guild House (400 gold)"
+#define MSG_GOSSIP_BUY           "Buy Guild House"
+#define MSG_GOSSIP_SELL          "Sell Guild House"
 #define MSG_GOSSIP_NEXTPAGE      "Next -->"
 #define MSG_INCOMBAT             "You are in battle!"
 #define MSG_NOGUILDHOUSE         "Your guild does not have a Guild House."
@@ -42,9 +43,6 @@ extern DatabaseType WorldDatabase;
 #define ICON_GOSSIP_BALOONDOTS   7
 #define ICON_GOSSIP_TABARD       8
 #define ICON_GOSSIP_XSWORDS      9
-
-#define COST_GH_BUY              5000000  //500 g.
-#define COST_GH_SELL             4000000   //400 g.
 
 #define GOSSIP_COUNT_MAX         10
 
@@ -183,11 +181,12 @@ bool isPlayerHasGuildhouse(Player *player, Creature *_creature, bool whisper = f
 
 void buyGuildhouse(Player *player, Creature *_creature, uint32 guildhouseId)
 {
-    if (player->GetMoney() < COST_GH_BUY)
+    uint32 buyprice = (sConfig.GetIntDefault("GuildMasterNPC.BuyPriceInGold",500)*10000);
+    if (player->GetMoney() < buyprice)
     {
         //show how much money player need to buy GH (in gold)
         char msg[100];
-        sprintf(msg, MSG_NOTENOUGHMONEY, COST_GH_BUY / 10000);
+        sprintf(msg, MSG_NOTENOUGHMONEY, buyprice / 10000);
         _creature->MonsterWhisper(msg, player->GetGUID());
         return;
     }
@@ -211,24 +210,25 @@ void buyGuildhouse(Player *player, Creature *_creature, uint32 guildhouseId)
     //update DB
     QueryResult_AutoPtr result_updt = WorldDatabase.PQuery("UPDATE `guild_houses` SET `guildId` = %u WHERE `id` = %u",
         player->GetGuildId(), guildhouseId);
-
-    player->ModifyMoney(-COST_GH_BUY);
+    
+    player->ModifyMoney(-buyprice);
     _creature->MonsterSay(MSG_CONGRATULATIONS, LANG_UNIVERSAL, player->GetGUID());
     
 }
 
 void sellGuildhouse(Player *player, Creature *_creature)
 {
+    uint32 sellprice = (sConfig.GetIntDefault("GuildMasterNPC.SellPriceInGold",400)*10000);
     if (isPlayerHasGuildhouse(player, _creature))
     {
         QueryResult_AutoPtr result = WorldDatabase.PQuery("UPDATE `guild_houses` SET `guildId` = 0 WHERE `guildId` = %u",
         player->GetGuildId());
         
-        player->ModifyMoney(COST_GH_SELL);
+        player->ModifyMoney(sellprice);
 
         //display message e.g. "here your money etc."
         char msg[100];
-        sprintf(msg, MSG_SOLD, COST_GH_SELL / 10000);
+        sprintf(msg, MSG_SOLD, sellprice / 10000);
         _creature->MonsterWhisper(msg, player->GetGUID());
     }
 }

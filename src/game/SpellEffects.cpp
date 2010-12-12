@@ -3,6 +3,8 @@
  *
  * Copyright (C) 2008 Trinity <http://www.trinitycore.org/>
  *
+ * Copyright (C) 2010 Oregon <http://www.oregoncore.com/>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -2282,7 +2284,7 @@ void Spell::EffectUnlearnSpecialization(uint32 i)
 
     _player->removeSpell(spellToUnlearn);
 
-    DEBUG_LOG("Spell: Player %u have unlearned spell %u from NpcGUID: %u", _player->GetGUIDLow(), spellToUnlearn, m_caster->GetGUIDLow());
+    DEBUG_LOG("Spell: Player %u has unlearned spell %u from NpcGUID: %u", _player->GetGUIDLow(), spellToUnlearn, m_caster->GetGUIDLow());
 }
 
 void Spell::EffectPowerDrain(uint32 i)
@@ -2882,7 +2884,7 @@ void Spell::SendLoot(uint64 guid, LootType loottype)
 
                 // cast goober spell
                 if (gameObjTarget->GetGOInfo()->goober.questId)
-                    ///Quest require to be active for GO using
+                    // Quest require to be active for GO using
                     if (player->GetQuestStatus(gameObjTarget->GetGOInfo()->goober.questId) != QUEST_STATUS_INCOMPLETE)
                         return;
 
@@ -3309,7 +3311,7 @@ void Spell::EffectLearnSpell(uint32 i)
     uint32 spellToLearn = (m_spellInfo->Id == SPELL_ID_GENERIC_LEARN) ? damage : m_spellInfo->EffectTriggerSpell[i];
     player->learnSpell(spellToLearn);
 
-    DEBUG_LOG("Spell: Player %u have learned spell %u from NpcGUID=%u", player->GetGUIDLow(), spellToLearn, m_caster->GetGUIDLow());
+    DEBUG_LOG("Spell: Player %u has learned spell %u from NpcGUID=%u", player->GetGUIDLow(), spellToLearn, m_caster->GetGUIDLow());
 }
 
 void Spell::EffectDispel(uint32 i)
@@ -3732,16 +3734,12 @@ void Spell::EffectTeleUnitsFaceCaster(uint32 i)
     if (unitTarget->isInFlight())
         return;
 
-    uint32 mapid = m_caster->GetMapId();
     float dis = GetSpellRadius(m_spellInfo,i,false);
 
     float fx, fy, fz;
     m_caster->GetClosePoint(fx, fy, fz, unitTarget->GetObjectSize(), dis);
 
-    if (mapid == unitTarget->GetMapId())
-        unitTarget->NearTeleportTo(fx, fy, fz, -m_caster->GetOrientation(), unitTarget == m_caster);
-    else if (unitTarget->GetTypeId() == TYPEID_PLAYER)
-        unitTarget->ToPlayer()->TeleportTo(mapid, fx, fy, fz, -m_caster->GetOrientation(), unitTarget == m_caster ? TELE_TO_SPELL : 0);
+    unitTarget->NearTeleportTo(fx, fy, fz, -m_caster->GetOrientation(), unitTarget == m_caster);
 }
 
 void Spell::EffectLearnSkill(uint32 i)
@@ -3890,14 +3888,14 @@ void Spell::EffectEnchantItemTmp(uint32 i)
 
     if (!enchant_id)
     {
-        sLog.outError("Spell %u Effect %u (SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY) have 0 as enchanting id",m_spellInfo->Id,i);
+        sLog.outError("Spell %u Effect %u (SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY) has 0 as enchanting id",m_spellInfo->Id,i);
         return;
     }
 
     SpellItemEnchantmentEntry const *pEnchant = sSpellItemEnchantmentStore.LookupEntry(enchant_id);
     if (!pEnchant)
     {
-        sLog.outError("Spell %u Effect %u (SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY) have not existed enchanting id %u ",m_spellInfo->Id,i,enchant_id);
+        sLog.outError("Spell %u Effect %u (SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY) has invalid enchanting id %u ",m_spellInfo->Id,i,enchant_id);
         return;
     }
 
@@ -4036,19 +4034,21 @@ void Spell::EffectSummonPet(uint32 i)
             if (OldSummon->isDead())
                 return;
 
-            OldSummon->GetMap()->Remove(OldSummon->ToCreature(),false);
+            ASSERT(OldSummon->GetMap() == owner->GetMap());
+
+            //OldSummon->GetMap()->Remove(OldSummon->ToCreature(),false);
 
             float px, py, pz;
             owner->GetClosePoint(px, py, pz, OldSummon->GetObjectSize());
 
-            OldSummon->Relocate(px, py, pz, OldSummon->GetOrientation());
-            OldSummon->SetMap(owner->GetMap());
-            owner->GetMap()->Add(OldSummon->ToCreature());
+            OldSummon->NearTeleportTo(px, py, pz, OldSummon->GetOrientation());
+            //OldSummon->Relocate(px, py, pz, OldSummon->GetOrientation());
+            //OldSummon->SetMap(owner->GetMap());
+            //owner->GetMap()->Add(OldSummon->ToCreature());
 
             if (owner->GetTypeId() == TYPEID_PLAYER && OldSummon->isControlled())
-            {
                 owner->ToPlayer()->PetSpellInitialize();
-            }
+
             return;
         }
 
@@ -6571,3 +6571,4 @@ void Spell::EffectRedirectThreat(uint32 /*i*/)
     if (unitTarget)
         m_caster->SetReducedThreatPercent(100, unitTarget->GetGUID());
 }
+

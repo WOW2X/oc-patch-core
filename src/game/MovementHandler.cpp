@@ -3,6 +3,8 @@
  *
  * Copyright (C) 2008 Trinity <http://www.trinitycore.org/>
  *
+ * Copyright (C) 2010 Oregon  <https://www.oregoncore.com/>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -431,7 +433,7 @@ void WorldSession::HandleMovementOpcodes(WorldPacket & recv_data)
     //---- anti-cheat features -->>>
     bool check_passed = true;
 
-    if (World::GetEnableMvAnticheat() && updateOrientationOnly)
+    if (World::GetEnableMvAnticheat() && updateOrientationOnly && GetPlayer()->m_anti_transportGUID == 0)
     {
         if ((abs(GetPlayer()->GetPositionX() - movementInfo.GetPos()->GetPositionX()) > 0.1f) ||
             (abs(GetPlayer()->GetPositionY() - movementInfo.GetPos()->GetPositionY()) > 0.1f) ||
@@ -1046,3 +1048,4 @@ void WorldSession::HandleSummonResponseOpcode(WorldPacket& recv_data)
 
     GetPlayer()->SummonIfPossible(agree);
 }
+

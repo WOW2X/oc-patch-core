@@ -3,6 +3,8 @@
  *
  * Copyright (C) 2008 Trinity
  *
+ * Copyright (C) 2010 Oregon <http://www.oregoncore.com/>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -104,11 +106,17 @@ void TicketMgr::LoadGMTickets()
 {
     // Delete all out of object holder
     GM_TicketList.clear();
+
     QueryResult_AutoPtr result = CharacterDatabase.Query("SELECT guid, playerGuid, name, message, createtime, map, posX, posY, posZ, timestamp, closed, assignedto, comment FROM gm_tickets");
     GM_Ticket *ticket;
 
     if (!result)
+    {
+        ticketmgr.InitTicketID();
+        sLog.outString();
+        sLog.outString(">> GM Tickets table is empty, no tickets were loaded.");
         return;
+    }
 
     // Assign values from SQL to the object holder
     do

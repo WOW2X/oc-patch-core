@@ -3,6 +3,8 @@
  *
  * Copyright (C) 2008-2009 Trinity <http://www.trinitycore.org/>
  *
+ * Copyright (C) 2010 Oregon <http://www.oregoncore.com/>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -76,7 +78,7 @@ void WorldSession::SendAuctionCommandResult(uint32 auctionId, uint32 Action, uin
     data << uint32(Action);
     data << uint32(ErrorCode);
     if (!ErrorCode && Action)
-        data << uint32(bidError);                           //when bid, then send 0, once...
+        data << uint32(bidError);                           // when bid, then send 0, once...
     SendPacket(&data);
 }
 
@@ -238,7 +240,7 @@ void WorldSession::HandleAuctionSellItem(WorldPacket & recv_data)
 
     AuctionHouseObject* auctionHouse = auctionmgr.GetAuctionsMap(pCreature->getFaction());
 
-    //we have to take deposit :
+    // we have to take deposit :
     uint32 deposit = auctionmgr.GetAuctionDeposit(auctionHouseEntry, etime, it);
     if (pl->GetMoney() < deposit)
     {
@@ -460,7 +462,7 @@ void WorldSession::HandleAuctionRemoveItem(WorldPacket & recv_data)
         }
         else
         {
-            sLog.outError("Auction id: %u has non-existed item (item guid : %u)!!!", auction->Id, auction->item_guidlow);
+            sLog.outError("Auction id: %u has invalid item (item guid : %u)!!!", auction->Id, auction->item_guidlow);
             SendAuctionCommandResult(0, AUCTION_CANCEL, AUCTION_INTERNAL_ERROR);
             return;
         }
@@ -468,12 +470,12 @@ void WorldSession::HandleAuctionRemoveItem(WorldPacket & recv_data)
     else
     {
         SendAuctionCommandResult(0, AUCTION_CANCEL, AUCTION_INTERNAL_ERROR);
-        //this code isn't possible ... maybe there should be assert
+        // this code isn't possible ... maybe there should be assert
         sLog.outError("CHEATER : %u, he tried to cancel auction (id: %u) of another player, or auction is NULL", pl->GetGUIDLow(), auctionId);
         return;
     }
 
-    //inform player, that auction is removed
+    // inform player, that auction is removed
     SendAuctionCommandResult(auction->Id, AUCTION_CANCEL, AUCTION_OK);
 
     // Now remove the auction
@@ -486,7 +488,7 @@ void WorldSession::HandleAuctionRemoveItem(WorldPacket & recv_data)
     CharacterDatabase.CommitTransaction();
 }
 
-//called when player lists his bids
+// called when player lists his bids
 void WorldSession::HandleAuctionListBidderItems(WorldPacket & recv_data)
 {
     uint64 guid;                                            //NPC guid

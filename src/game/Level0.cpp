@@ -3,6 +3,8 @@
  *
  * Copyright (C) 2008 Trinity <http://www.trinitycore.org/>
  *
+ * Copyright (C) 2010 Oregon <http://www.oregoncore.com/>
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -185,6 +187,51 @@ bool ChatHandler::HandleServerInfoCommand(const char* /*args*/)
     return true;
 }
 
+bool ChatHandler::HandleServerVersionCommand(const char* /*args*/)
+{
+    PSendSysMessage(_FULLVERSION);
+    return true;
+}
+
+bool ChatHandler::HandleServerRevCommand(const char* /*args*/)
+{
+    PSendSysMessage(_REVISION);
+    return true;
+}
+
+bool ChatHandler::HandleServerDBVersionCommand(const char* /*args*/)
+{
+    PSendSysMessage(LANG_USING_WORLD_DB,sWorld.GetDBVersion());
+    return true;
+}
+
+bool ChatHandler::HandleServerUptimeCommand(const char* /*args*/)
+{
+    std::string str = secsToTimeString(sWorld.GetUptime());
+    PSendSysMessage("%s", str.c_str());
+    return true;
+}
+
+bool ChatHandler::HandleServerPlayerCountCommand(const char* /*args*/)
+{
+    uint32 activeClientsNum = sWorld.GetActiveSessionCount();
+    uint32 queuedClientsNum = sWorld.GetQueuedSessionCount();
+    uint32 maxActiveClientsNum = sWorld.GetMaxActiveSessionCount();
+    uint32 maxQueuedClientsNum = sWorld.GetMaxQueuedSessionCount();
+    PSendSysMessage("%u,%u,%u,%u", activeClientsNum, maxActiveClientsNum, queuedClientsNum, maxQueuedClientsNum);
+    return true;
+}
+
+bool ChatHandler::HandleServerPlayersCommand(const char* /*args*/)
+{
+    uint32 activeClientsNum = sWorld.GetActiveSessionCount();
+    uint32 queuedClientsNum = sWorld.GetQueuedSessionCount();
+    uint32 maxActiveClientsNum = sWorld.GetMaxActiveSessionCount();
+    uint32 maxQueuedClientsNum = sWorld.GetMaxQueuedSessionCount();
+    PSendSysMessage(LANG_CONNECTED_USERS, activeClientsNum, maxActiveClientsNum, queuedClientsNum, maxQueuedClientsNum);
+    return true;
+}
+
 bool ChatHandler::HandleDismountCommand(const char* /*args*/)
 {
     //If player is not mounted, so go out :)
@@ -333,7 +380,7 @@ bool ChatHandler::HandleAccountLockCommand(const char* args)
     return true;
 }
 
-/// Display the 'Message of the day' for the realm
+// Display the 'Message of the day' for the realm
 bool ChatHandler::HandleServerMotdCommand(const char* /*args*/)
 {
     PSendSysMessage(LANG_MOTD_CURRENT, sWorld.GetMotd());
