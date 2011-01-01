@@ -573,6 +573,7 @@ enum OregonStrings
     LANG_BG_A_WINS                      = 600,
     LANG_BG_H_WINS                      = 601,
 
+    LANG_BG_WS_START_TWO_MINUTES        = 753,
     LANG_BG_WS_START_ONE_MINUTE         = 602,
     LANG_BG_WS_START_HALF_MINUTE        = 603,
     LANG_BG_WS_HAS_BEGUN                = 604,
@@ -589,6 +590,7 @@ enum OregonStrings
     LANG_BG_WS_ALLIANCE_FLAG_RESPAWNED  = 614,
     LANG_BG_WS_HORDE_FLAG_RESPAWNED     = 615,
 
+    LANG_BG_EY_START_TWO_MINUTES        = 755,
     LANG_BG_EY_START_ONE_MINUTE         = 636,
     LANG_BG_EY_START_HALF_MINUTE        = 637,
     LANG_BG_EY_HAS_BEGUN                = 638,
@@ -605,6 +607,7 @@ enum OregonStrings
     LANG_BG_AB_NODE_ASSAULTED           = 659,
     LANG_BG_AB_NODE_CLAIMED             = 660,
 
+    LANG_BG_AB_START_TWO_MINUTES        = 754,
     LANG_BG_AB_START_ONE_MINUTE         = 661,
     LANG_BG_AB_START_HALF_MINUTE        = 662,
     LANG_BG_AB_HAS_BEGUN                = 663,
@@ -676,8 +679,12 @@ enum OregonStrings
 //                                      = 737-749, not used
     LANG_BATTLEGROUND_PREMATURE_FINISH_WARNING = 750,       // "Not enough players. This game will close in %u mins."
     LANG_BATTLEGROUND_PREMATURE_FINISH_WARNING_SECS = 751,  // "Not enough players. This game will close in %u seconds."
+//                                      = 752, not used
+//  LANG_BG_WS_START_TWO_MINUTES        = 753, - defined above
+//  LANG_BG_AB_START_TWO_MINUTES        = 754, - defined above
+//  LANG_BG_EY_START_TWO_MINUTES        = 755, - defined above
 
-    // Room for BG/ARENA                = 753-784 not used
+    // Room for BG/ARENA                = 773-784, 788-799 not used
     LANG_ARENA_TESTING                  = 785,
     LANG_AUTO_ANN                       = 786,
     LANG_ANNOUNCE_COLOR                 = 787,
@@ -715,7 +722,19 @@ enum OregonStrings
     LANG_CHARACTER_DELETED              = 1009,
     LANG_ACCOUNT_LIST_HEADER            = 1010,
     LANG_ACCOUNT_LIST_ERROR             = 1011,
-    // Room for more level 4              1012-1099 not used
+    LANG_CHARACTER_DELETED_LIST_HEADER  = 1012,
+    LANG_CHARACTER_DELETED_LIST_LINE_CONSOLE = 1013,
+    LANG_CHARACTER_DELETED_LIST_BAR     = 1014,
+    LANG_CHARACTER_DELETED_LIST_EMPTY   = 1015,
+    LANG_CHARACTER_DELETED_RESTORE      = 1016,
+    LANG_CHARACTER_DELETED_DELETE       = 1017,
+    LANG_CHARACTER_DELETED_ERR_RENAME   = 1018,
+    LANG_CHARACTER_DELETED_SKIP_ACCOUNT = 1019,
+    LANG_CHARACTER_DELETED_SKIP_FULL    = 1020,
+    LANG_CHARACTER_DELETED_SKIP_NAME    = 1021,
+    LANG_CHARACTER_DELETED_LIST_LINE_CHAT = 1022,
+    // Room for more level 4              1023-1099 not used
+
 
     // Level 3 (continue)
     LANG_ACCOUNT_SETADDON               = 1100,
@@ -780,7 +799,8 @@ enum OregonStrings
     LANG_BG_AV_H_NEAR_LOSE              = 1330,
     LANG_BG_AV_H_CAPTAIN_DEAD           = 1331,
     LANG_BG_AV_A_CAPTAIN_DEAD           = 1332,
-    // FREE IDS                           1333-1999
+    LANG_BG_AV_START_TWO_MINUTES        = 1333,
+    // FREE IDS                           1334-1999
 
     // Ticket Strings 2000-2029
     LANG_COMMAND_TICKETNEW              = 2000,

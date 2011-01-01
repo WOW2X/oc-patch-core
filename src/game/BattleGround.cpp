@@ -31,6 +31,97 @@
 #include "ArenaTeam.h"
 #include "World.h"
 #include "Util.h"
+#include "GridNotifiersImpl.h"
+
+namespace Oregon
+{
+    class BattleGroundChatBuilder
+    {
+        public:
+            BattleGroundChatBuilder(ChatMsg msgtype, int32 textId, Player const* source, va_list* args = NULL)
+                : i_msgtype(msgtype), i_textId(textId), i_source(source), i_args(args) {}
+            void operator()(WorldPacket& data, int32 loc_idx)
+            {
+                char const* text = objmgr.GetOregonString(i_textId, loc_idx);
+
+                if (i_args)
+                {
+                    // we need copy va_list before use or original va_list will corrupted
+                    va_list ap;
+                    va_copy(ap,*i_args);
+
+                    char str [2048];
+                    vsnprintf(str, 2048, text, ap );
+                    va_end(ap);
+
+                    do_helper(data, &str[0]);
+                }
+                else
+                    do_helper(data, text);
+            }
+        private:
+            void do_helper(WorldPacket& data, char const* text)
+            {
+                uint64 target_guid = i_source ? i_source ->GetGUID() : 0;
+
+                data << uint8(i_msgtype);
+                data << uint32(LANG_UNIVERSAL);
+                data << uint64(target_guid);                // there 0 for BG messages
+                data << uint32(0);                          // can be chat msg group or something
+                data << uint64(target_guid);
+                data << uint32(strlen(text)+1);
+                data << text;
+                data << uint8(i_source ? i_source->chatTag() : uint8(0));
+            }
+
+            ChatMsg i_msgtype;
+            int32 i_textId;
+            Player const* i_source;
+            va_list* i_args;
+    };
+
+    class BattleGround2ChatBuilder
+    {
+        public:
+            BattleGround2ChatBuilder(ChatMsg msgtype, int32 textId, Player const* source, int32 arg1, int32 arg2)
+                : i_msgtype(msgtype), i_textId(textId), i_source(source), i_arg1(arg1), i_arg2(arg2) {}
+            void operator()(WorldPacket& data, int32 loc_idx)
+            {
+                char const* text = objmgr.GetOregonString(i_textId, loc_idx);
+                char const* arg1str = i_arg1 ? objmgr.GetOregonString(i_arg1, loc_idx) : "";
+                char const* arg2str = i_arg2 ? objmgr.GetOregonString(i_arg2, loc_idx) : "";
+
+                char str [2048];
+                snprintf(str, 2048, text, arg1str, arg2str );
+
+                uint64 target_guid = i_source ? i_source ->GetGUID() : 0;
+
+                data << uint8(i_msgtype);
+                data << uint32(LANG_UNIVERSAL);
+                data << uint64(target_guid);                // there 0 for BG messages
+                data << uint32(0);                          // can be chat msg group or something
+                data << uint64(target_guid);
+                data << uint32(strlen(str)+1);
+                data << str;
+                data << uint8(i_source ? i_source->chatTag() : uint8(0));
+            }
+        private:
+
+            ChatMsg i_msgtype;
+            int32 i_textId;
+            Player const* i_source;
+            int32 i_arg1;
+            int32 i_arg2;
+    };
+}                                                           // namespace Oregon
+
+template<class Do>
+void BattleGround::BroadcastWorker(Do& _do)
+{
+    for (std::map<uint64, BattleGroundPlayer>::iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+        if (Player *plr = ObjectAccessor::FindPlayer(MAKE_NEW_GUID(itr->first, 0, HIGHGUID_PLAYER)))
+            _do(plr);
+}
 
 BattleGround::BattleGround()
 {
@@ -87,10 +178,23 @@ BattleGround::BattleGround()
     m_PlayersCount[BG_TEAM_ALLIANCE]    = 0;
     m_PlayersCount[BG_TEAM_HORDE]       = 0;
 
+    m_TeamScores[BG_TEAM_ALLIANCE]      = 0;
+    m_TeamScores[BG_TEAM_HORDE]         = 0;
+
     m_PrematureCountDown = false;
     m_PrematureCountDown = 0;
 
     m_HonorMode = BG_NORMAL;
+
+    m_StartDelayTimes[BG_STARTING_EVENT_FIRST]  = BG_START_DELAY_2M;
+    m_StartDelayTimes[BG_STARTING_EVENT_SECOND] = BG_START_DELAY_1M;
+    m_StartDelayTimes[BG_STARTING_EVENT_THIRD]  = BG_START_DELAY_30S;
+    m_StartDelayTimes[BG_STARTING_EVENT_FOURTH] = BG_START_DELAY_NONE;
+    //we must set to some default existing values
+    m_StartMessageIds[BG_STARTING_EVENT_FIRST]  = LANG_BG_WS_START_TWO_MINUTES;
+    m_StartMessageIds[BG_STARTING_EVENT_SECOND] = LANG_BG_WS_START_ONE_MINUTE;
+    m_StartMessageIds[BG_STARTING_EVENT_THIRD]  = LANG_BG_WS_START_HALF_MINUTE;
+    m_StartMessageIds[BG_STARTING_EVENT_FOURTH] = LANG_BG_WS_HAS_BEGUN;
 }
 
 BattleGround::~BattleGround()
@@ -185,6 +289,11 @@ void BattleGround::Update(time_t diff)
         }
     }
 
+    /*********************************************************/
+    /***        BATTLEGROUND RESSURECTION SYSTEM           ***/
+    /*********************************************************/
+
+    //this should be handled by spell system
     m_LastResurrectTime += diff;
     if (m_LastResurrectTime >= RESURRECTION_INTERVAL)
     {
@@ -272,6 +381,80 @@ void BattleGround::Update(time_t diff)
     }
     else if (m_PrematureCountDown)
         m_PrematureCountDown = false;
+
+    /*********************************************************/
+    /***           BATTLEGROUND STARTING SYSTEM            ***/
+    /*********************************************************/
+
+    if (GetStatus() == STATUS_WAIT_JOIN && GetPlayersSize())
+    {
+        ModifyStartDelayTime(diff);
+
+        if (!(m_Events & BG_STARTING_EVENT_1))
+        {
+            m_Events |= BG_STARTING_EVENT_1;
+
+            // setup here, only when at least one player has ported to the map
+            if (!SetupBattleGround())
+            {
+                EndNow();
+                return;
+            }
+
+            StartingEventCloseDoors();
+            SetStartDelayTime(m_StartDelayTimes[BG_STARTING_EVENT_FIRST]);
+            //first start warning - 2 or 1 minute
+            SendMessageToAll(m_StartMessageIds[BG_STARTING_EVENT_FIRST], CHAT_MSG_BG_SYSTEM_NEUTRAL);
+        }
+        // After 1 minute or 30 seconds, warning is signalled
+        else if (GetStartDelayTime() <= m_StartDelayTimes[BG_STARTING_EVENT_SECOND] && !(m_Events & BG_STARTING_EVENT_2))
+        {
+            m_Events |= BG_STARTING_EVENT_2;
+            SendMessageToAll(m_StartMessageIds[BG_STARTING_EVENT_SECOND], CHAT_MSG_BG_SYSTEM_NEUTRAL);
+        }
+        // After 30 or 15 seconds, warning is signalled
+        else if (GetStartDelayTime() <= m_StartDelayTimes[BG_STARTING_EVENT_THIRD] && !(m_Events & BG_STARTING_EVENT_3))
+        {
+            m_Events |= BG_STARTING_EVENT_3;
+            SendMessageToAll(m_StartMessageIds[BG_STARTING_EVENT_THIRD], CHAT_MSG_BG_SYSTEM_NEUTRAL);
+        }
+        // delay expired (after 2 or 1 minute)
+        else if (GetStartDelayTime() <= 0 && !(m_Events & BG_STARTING_EVENT_4))
+        {
+            m_Events |= BG_STARTING_EVENT_4;
+
+            StartingEventOpenDoors();
+
+            SendMessageToAll(m_StartMessageIds[BG_STARTING_EVENT_FOURTH], CHAT_MSG_BG_SYSTEM_NEUTRAL);
+            SetStatus(STATUS_IN_PROGRESS);
+            SetStartDelayTime(m_StartDelayTimes[BG_STARTING_EVENT_FOURTH]);
+
+            //remove preparation
+            if (isArena())
+            {
+                for (BattleGroundPlayerMap::const_iterator itr = GetPlayers().begin(); itr != GetPlayers().end(); ++itr)
+                    if (Player *plr = objmgr.GetPlayer(itr->first))
+                        plr->RemoveAurasDueToSpell(SPELL_ARENA_PREPARATION);
+
+                CheckArenaWinConditions();
+            }
+            else
+            {
+                PlaySoundToAll(SOUND_BG_START);
+
+                for (BattleGroundPlayerMap::const_iterator itr = GetPlayers().begin(); itr != GetPlayers().end(); ++itr)
+                    if (Player* plr = objmgr.GetPlayer(itr->first))
+                        plr->RemoveAurasDueToSpell(SPELL_PREPARATION);
+
+                //Announce BG starting
+                Announce();
+            }
+        }
+    }
+
+    /*********************************************************/
+    /***           BATTLEGROUND ENDING SYSTEM              ***/
+    /*********************************************************/
 
     if (GetStatus() == STATUS_WAIT_LEAVE)
     {
@@ -469,15 +652,11 @@ void BattleGround::EndBattleGround(uint32 winner)
     uint32 loser_rating = 0;
     uint32 winner_rating = 0;
     WorldPacket data;
-    Player *Source = NULL;
-    const char *winmsg = "";
+    int32 winmsg_id = 0;
 
     if (winner == ALLIANCE)
     {
-        if (isBattleGround())
-            winmsg = GetOregonString(LANG_BG_A_WINS);
-        else
-            winmsg = GetOregonString(LANG_ARENA_GOLD_WINS);
+        winmsg_id = isBattleGround() ? LANG_BG_A_WINS : LANG_ARENA_GOLD_WINS;
 
         PlaySoundToAll(SOUND_ALLIANCE_WINS);                // alliance wins sound
 
@@ -485,10 +664,7 @@ void BattleGround::EndBattleGround(uint32 winner)
     }
     else if (winner == HORDE)
     {
-        if (isBattleGround())
-            winmsg = GetOregonString(LANG_BG_H_WINS);
-        else
-            winmsg = GetOregonString(LANG_ARENA_GREEN_WINS);
+        winmsg_id = isBattleGround() ? LANG_BG_H_WINS : LANG_ARENA_GREEN_WINS;
 
         PlaySoundToAll(SOUND_HORDE_WINS);                   // horde wins sound
 
@@ -643,11 +819,8 @@ void BattleGround::EndBattleGround(uint32 winner)
     // inform invited players about the removal
     sBattleGroundMgr.m_BattleGroundQueues[sBattleGroundMgr.BGQueueTypeId(GetTypeID(), GetArenaType())].BGEndedRemoveInvites(this);
 
-    if (Source)
-    {
-        ChatHandler(Source).FillMessageData(&data, CHAT_MSG_BG_SYSTEM_NEUTRAL, LANG_UNIVERSAL, Source->GetGUID(), winmsg);
-        SendPacketToAll(&data);
-    }
+    if (winmsg_id)
+        SendMessageToAll(winmsg_id, CHAT_MSG_BG_SYSTEM_NEUTRAL);
 }
 
 uint32 BattleGround::GetBattlemasterEntry() const
@@ -919,7 +1092,7 @@ void BattleGround::Reset()
     m_Events = 0;
 
     if (m_InvitedAlliance > 0 || m_InvitedHorde > 0)
-        sLog.outError("BattleGround system ERROR: bad counter, m_InvitedAlliance: %d, m_InvitedHorde: %d", m_InvitedAlliance, m_InvitedHorde);
+        sLog.outError("BattleGround system: bad counter, m_InvitedAlliance: %d, m_InvitedHorde: %d", m_InvitedAlliance, m_InvitedHorde);
 
     m_InvitedAlliance = 0;
     m_InvitedHorde = 0;
@@ -931,13 +1104,11 @@ void BattleGround::Reset()
         delete itr->second;
     m_PlayerScores.clear();
 
-    // reset BGSubclass
     ResetBGSubclass();
 }
 
 void BattleGround::StartBattleGround()
 {
-    // this method should spawn spirit guides and so on
     SetStartTime(0);
     SetLastResurrectTime(0);
     if (m_IsRated)
@@ -1020,6 +1191,19 @@ void BattleGround::AddPlayer(Player *plr)
 
     // Log
     sLog.outDetail("BATTLEGROUND: Player %s joined the battle.", plr->GetName());
+}
+
+// This method should be called when player logs out from running battleground
+void BattleGround::EventPlayerLoggedOut(Player* player)
+{
+    if (GetStatus() == STATUS_IN_PROGRESS)
+    {
+        if (isBattleGround())
+            EventPlayerDroppedFlag(player);
+    }
+
+    if (isArena())
+        player->LeaveBattleground();
 }
 
 /* This method should be called only once ... it adds pointer to queue */
@@ -1443,30 +1627,30 @@ bool BattleGround::AddSpiritGuide(uint32 type, float x, float y, float z, float 
     return true;
 }
 
-void BattleGround::SendMessageToAll(char const* text)
+void BattleGround::SendMessageToAll(int32 entry, ChatMsg type, Player const* source)
 {
-    WorldPacket data;
-    ChatHandler::FillMessageData(&data, NULL, CHAT_MSG_BG_SYSTEM_NEUTRAL, LANG_UNIVERSAL, NULL, 0, text, NULL);
-    SendPacketToAll(&data);
+    Oregon::BattleGroundChatBuilder bg_builder(type, entry, source);
+    Oregon::LocalizedPacketDo<Oregon::BattleGroundChatBuilder> bg_do(bg_builder);
+    BroadcastWorker(bg_do);
 }
 
-void BattleGround::SendMessageToAll(int32 entry)
+void BattleGround::PSendMessageToAll(int32 entry, ChatMsg type, Player const* source, ...)
 {
-    char const* text = GetOregonString(entry);
-    WorldPacket data;
-    ChatHandler::FillMessageData(&data, NULL, CHAT_MSG_BG_SYSTEM_NEUTRAL, LANG_UNIVERSAL, NULL, 0, text, NULL);
-    SendPacketToAll(&data);
-}
-
-void BattleGround::PSendMessageToAll(int32 entry, ...)
-{
-    const char *format = GetOregonString(entry);
     va_list ap;
-    char str [2048];
-    va_start(ap, entry);
-    vsnprintf(str,2048,format, ap );
+    va_start(ap, source);
+
+    Oregon::BattleGroundChatBuilder bg_builder(type, entry, source, &ap);
+    Oregon::LocalizedPacketDo<Oregon::BattleGroundChatBuilder> bg_do(bg_builder);
+    BroadcastWorker(bg_do);
+
     va_end(ap);
-    SendMessageToAll(str);
+}
+
+void BattleGround::SendMessage2ToAll(int32 entry, ChatMsg type, Player const* source, int32 arg1, int32 arg2)
+{
+    Oregon::BattleGround2ChatBuilder bg_builder(type, entry, source, arg1, arg2);
+    Oregon::LocalizedPacketDo<Oregon::BattleGround2ChatBuilder> bg_do(bg_builder);
+    BroadcastWorker(bg_do);
 }
 
 void BattleGround::EndNow()
@@ -1627,55 +1811,50 @@ void BattleGround::SetHoliday(bool is_holiday)
 
 int32 BattleGround::GetObjectType(uint64 guid)
 {
-    for (uint32 i = 0;i <= m_BgObjects.size(); i++)
+    for (uint32 i = 0; i < m_BgObjects.size(); ++i)
         if (m_BgObjects[i] == guid)
             return i;
     sLog.outError("BattleGround: cheating? a player used a gameobject which isnt supposed to be a usable object!");
     return -1;
 }
 
-void BattleGround::HandleKillUnit(Creature *creature, Player *killer)
+void BattleGround::HandleKillUnit(Creature * /*creature*/, Player * /*killer*/)
 {
 }
 
-// This method should be called when player logs out from running battleground
-void BattleGround::EventPlayerLoggedOut(Player* player)
+void BattleGround::CheckArenaWinConditions()
 {
-    if (GetStatus() == STATUS_IN_PROGRESS)
-    {
-        if (isBattleGround())
-            EventPlayerDroppedFlag(player);
-    }
+    if (!GetAlivePlayersCountByTeam(ALLIANCE) && GetPlayersCountByTeam(HORDE))
+        EndBattleGround(HORDE);
+    else if (GetPlayersCountByTeam(ALLIANCE) && !GetAlivePlayersCountByTeam(HORDE))
+        EndBattleGround(ALLIANCE);
+}
 
-    if (isArena())
-        player->LeaveBattleground();
+WorldSafeLocsEntry const* BattleGround::GetClosestGraveYard(Player* player)
+{
+    return objmgr.GetClosestGraveYard(player->GetPositionX(), player->GetPositionY(), player->GetPositionZ(), player->GetMapId(), player->GetTeam());
 }
 
 void BattleGround::Announce()
 {
-	//send world message
-	if(sWorld.getConfig(CONFIG_BATTLEGROUND_QUEUE_ANNOUNCER_ENABLE) && sWorld.getConfig(CONFIG_BATTLEGROUND_QUEUE_ANNOUNCER_ONSTART))
-	{
-		uint32 queue_id = 0;
+    //send world message
+    if (sWorld.getConfig(CONFIG_BATTLEGROUND_QUEUE_ANNOUNCER_ENABLE) && sWorld.getConfig(CONFIG_BATTLEGROUND_QUEUE_ANNOUNCER_ONSTART))
+    {
+        uint32 queue_id = 0;
 
-		for (std::map<uint64, BattleGroundPlayer>::iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
-		{
-			Player *plr = objmgr.GetPlayer(itr->first);
-			if (plr) {
-				queue_id = plr->GetBattleGroundQueueIdFromLevel();
-			}
-		}
+        for (std::map<uint64, BattleGroundPlayer>::iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
+            if (Player *plr = objmgr.GetPlayer(itr->first))
+                queue_id = plr->GetBattleGroundQueueIdFromLevel();
 
-		char const* bgName = GetName();
+        char const* bgName = GetName();
 
-		uint32 q_min_level = Player::GetMinLevelForBattleGroundQueueId(queue_id);
-		uint32 q_max_level = Player::GetMaxLevelForBattleGroundQueueId(queue_id);
+        uint32 q_min_level = Player::GetMinLevelForBattleGroundQueueId(queue_id);
+        uint32 q_max_level = Player::GetMaxLevelForBattleGroundQueueId(queue_id);
 
-		// replace hardcoded max level by player max level for nice output
-		if(q_max_level > sWorld.getConfig(CONFIG_MAX_PLAYER_LEVEL))
-			q_max_level = sWorld.getConfig(CONFIG_MAX_PLAYER_LEVEL);
+        // replace hardcoded max level by player max level for nice output
+        if (q_max_level > sWorld.getConfig(CONFIG_MAX_PLAYER_LEVEL))
+            q_max_level = sWorld.getConfig(CONFIG_MAX_PLAYER_LEVEL);
 
-		sWorld.SendWorldText(LANG_BG_QUEUE_ANNOUNCE_START,
-			bgName, q_min_level, q_max_level);
-	}
+        sWorld.SendWorldText(LANG_BG_QUEUE_ANNOUNCE_START, bgName, q_min_level, q_max_level);
+    }
 }

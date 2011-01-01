@@ -159,6 +159,8 @@ class BattleGroundWS : public BattleGround
 
         /* inherited from BattlegroundClass */
         virtual void AddPlayer(Player *plr);
+        virtual void StartingEventCloseDoors();
+        virtual void StartingEventOpenDoors();
 
         /* BG Flags */
         uint64 GetAllianceFlagPickerGUID() const    { return m_FlagKeepers[BG_TEAM_ALLIANCE]; }
@@ -204,7 +206,6 @@ class BattleGroundWS : public BattleGround
         uint64 m_FlagKeepers[2];                            // 0 - alliance, 1 - horde
         uint64 m_DroppedFlagGUID[2];
         uint8 m_FlagState[2];                               // for checking flag state
-        uint32 m_TeamScores[2];
         int32 m_FlagsTimer[2];
         int32 m_FlagsDropTimer[2];
 

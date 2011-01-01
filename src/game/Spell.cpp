@@ -110,9 +110,9 @@ void SpellCastTargets::setSrc(Position *pos)
     }
 }
 
-void SpellCastTargets::setDst(float x, float y, float z, uint32 mapId)
+void SpellCastTargets::setDst(float x, float y, float z, float orientation, uint32 mapId)
 {
-    m_dstPos.Relocate(x, y, z);
+    m_dstPos.Relocate(x, y, z, orientation);
     m_targetMask |= TARGET_FLAG_DEST_LOCATION;
     if (mapId != MAPID_INVALID)
         m_dstPos.m_mapId = mapId;
@@ -855,13 +855,32 @@ void Spell::DoAllEffectOnTarget(TargetInfo *target)
     target->processed = true;                               // Target checked in apply effects procedure
 
     // Get mask of effects for target
-    uint32 mask = target->effectMask;
+    uint8 mask = target->effectMask;
     if (mask == 0)                                          // No effects
         return;
 
     Unit* unit = m_caster->GetGUID() == target->targetGUID ? m_caster : ObjectAccessor::GetUnit(*m_caster,target->targetGUID);
     if (!unit)
+    {
+        uint8 farMask = 0;
+        // create far target mask
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            if (IsFarUnitTargetEffect(m_spellInfo->Effect[i]))
+                if ((1<<i) & mask)
+                    farMask |= (1<<i);
+        if (!farMask)
+            return;
+        // find unit in world
+        unit = ObjectAccessor::FindUnit(target->targetGUID);
+        if (!unit)
+            return;
+        // do far effects on the unit
+        // can't use default call because of threading, do stuff as fast as possible
+        for (uint8 i = 0; i < MAX_SPELL_EFFECTS; ++i)
+            if (farMask & (1<<i))
+                HandleEffects(unit, NULL, NULL, i);
         return;
+    }
 
     // Get original caster (if exist) and calculate damage/healing from him data
     Unit *caster = m_originalCasterGUID ? m_originalCaster : m_caster;
@@ -1401,21 +1420,14 @@ WorldObject* Spell::SearchNearbyTarget(float range, SpellTargets TargetType)
                 switch(i_spellST->second.type)
                 {
                     case SPELL_TARGET_TYPE_GAMEOBJECT:
-                    {
-                        GameObject* p_GameObject = NULL;
-
                         if (i_spellST->second.targetEntry)
                         {
-                            Oregon::NearestGameObjectEntryInObjectRangeCheck go_check(*m_caster,i_spellST->second.targetEntry,range);
-                            Oregon::GameObjectLastSearcher<Oregon::NearestGameObjectEntryInObjectRangeCheck> checker(p_GameObject,go_check);
-                            m_caster->VisitNearbyGridObject(range, checker);
-
-                            if (p_GameObject)
+                            if (GameObject *go = m_caster->FindNearestGameObject(i_spellST->second.targetEntry, range))
                             {
                                 // remember found target and range, next attempt will find more near target with another entry
+                                goScriptTarget = go;
                                 creatureScriptTarget = NULL;
-                                goScriptTarget = p_GameObject;
-                                range = go_check.GetLastRange();
+                                range = m_caster->GetDistance(goScriptTarget);
                             }
                         }
                         else if (focusObject)          //Focus Object
@@ -1429,25 +1441,16 @@ WorldObject* Spell::SearchNearbyTarget(float range, SpellTargets TargetType)
                             }
                         }
                         break;
-                    }
                     case SPELL_TARGET_TYPE_CREATURE:
                     case SPELL_TARGET_TYPE_DEAD:
                     default:
-                    {
-                        Creature *p_Creature = NULL;
-
-                        Oregon::NearestCreatureEntryWithLiveStateInObjectRangeCheck u_check(*m_caster,i_spellST->second.targetEntry,i_spellST->second.type != SPELL_TARGET_TYPE_DEAD,range);
-                        Oregon::CreatureLastSearcher<Oregon::NearestCreatureEntryWithLiveStateInObjectRangeCheck> searcher(p_Creature, u_check);
-                        m_caster->VisitNearbyObject(range, searcher);
-
-                        if (p_Creature)
+                        if (Creature *cre = m_caster->FindNearestCreature(i_spellST->second.targetEntry, range, i_spellST->second.type != SPELL_TARGET_TYPE_DEAD))
                         {
-                            creatureScriptTarget = p_Creature;
+                            creatureScriptTarget = cre;
                             goScriptTarget = NULL;
-                            range = u_check.GetLastRange();
+                            range = m_caster->GetDistance(creatureScriptTarget);
                         }
                         break;
-                    }
                 }
             }
 
@@ -1500,7 +1503,7 @@ void Spell::SetTargetMap(uint32 i, uint32 cur)
                     float dis = rand_norm() * (max_dis - min_dis) + min_dis;
                     float x, y, z;
                     m_caster->GetClosePoint(x, y, z, DEFAULT_WORLD_OBJECT_SIZE, dis);
-                    m_targets.setDst(x, y, z);
+                    m_targets.setDst(x, y, z, m_caster->GetOrientation());
                     break;
                 }
                 case TARGET_UNIT_MASTER:
@@ -1746,16 +1749,16 @@ void Spell::SetTargetMap(uint32 i, uint32 cur)
                         if (m_spellInfo->Effect[0] == SPELL_EFFECT_TELEPORT_UNITS
                             || m_spellInfo->Effect[1] == SPELL_EFFECT_TELEPORT_UNITS
                             || m_spellInfo->Effect[2] == SPELL_EFFECT_TELEPORT_UNITS)
-                            m_targets.setDst(st->target_X, st->target_Y, st->target_Z, (int32)st->target_mapId);
+                            m_targets.setDst(st->target_X, st->target_Y, st->target_Z, st->target_Orientation, (int32)st->target_mapId);
                         else if (st->target_mapId == m_caster->GetMapId())
-                            m_targets.setDst(st->target_X, st->target_Y, st->target_Z);
+                            m_targets.setDst(st->target_X, st->target_Y, st->target_Z, st->target_Orientation);
                     }
                     else
                         sLog.outError("SPELL: unknown target coordinates for spell ID %u\n", m_spellInfo->Id);
                     break;
                 case TARGET_DST_HOME:
                     if (m_caster->GetTypeId() == TYPEID_PLAYER)
-                        m_targets.setDst(m_caster->ToPlayer()->m_homebindX,m_caster->ToPlayer()->m_homebindY,m_caster->ToPlayer()->m_homebindZ, m_caster->ToPlayer()->m_homebindMapId);
+                        m_targets.setDst(m_caster->ToPlayer()->m_homebindX, m_caster->ToPlayer()->m_homebindY, m_caster->ToPlayer()->m_homebindZ, m_caster->ToPlayer()->GetOrientation(), m_caster->ToPlayer()->m_homebindMapId);
                     break;
                 case TARGET_DST_NEARBY_ENTRY:
                 {
@@ -1773,7 +1776,7 @@ void Spell::SetTargetMap(uint32 i, uint32 cur)
 
         case TARGET_TYPE_CHANNEL:
         {
-            if (!m_originalCaster || !m_originalCaster->m_currentSpells[CURRENT_CHANNELED_SPELL])
+            if (!m_originalCaster || !m_originalCaster->GetCurrentSpell(CURRENT_CHANNELED_SPELL))
             {
                 sLog.outError("SPELL: no current channeled spell for spell ID %u", m_spellInfo->Id);
                 break;
@@ -1782,14 +1785,14 @@ void Spell::SetTargetMap(uint32 i, uint32 cur)
             switch(cur)
             {
                 case TARGET_UNIT_CHANNEL:
-                    if (Unit* target = m_originalCaster->m_currentSpells[CURRENT_CHANNELED_SPELL]->m_targets.getUnitTarget())
+                    if (Unit* target = m_originalCaster->GetCurrentSpell(CURRENT_CHANNELED_SPELL)->m_targets.getUnitTarget())
                         AddUnitTarget(target, i);
                     else
                         sLog.outError("SPELL: cannot find channel spell target for spell ID %u", m_spellInfo->Id);
                     break;
                 case TARGET_DEST_CHANNEL:
-                    if (m_originalCaster->m_currentSpells[CURRENT_CHANNELED_SPELL]->m_targets.HasDst())
-                        m_targets = m_originalCaster->m_currentSpells[CURRENT_CHANNELED_SPELL]->m_targets;
+                    if (m_originalCaster->GetCurrentSpell(CURRENT_CHANNELED_SPELL)->m_targets.HasDst())
+                        m_targets = m_originalCaster->GetCurrentSpell(CURRENT_CHANNELED_SPELL)->m_targets;
                     else
                         sLog.outError("SPELL: cannot find channel spell destination for spell ID %u", m_spellInfo->Id);
                     break;
@@ -2071,7 +2074,6 @@ void Spell::prepare(SpellCastTargets * targets, Aura* triggeredByAura)
             m_caster->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_CAST);
 
         m_caster->SetCurrentCastedSpell(this);
-        m_selfContainer = &(m_caster->m_currentSpells[GetCurrentContainer()]);
         SendSpellStart();
 
         if (m_caster->GetTypeId() == TYPEID_PLAYER)

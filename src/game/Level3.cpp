@@ -1304,6 +1304,15 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(const char *args)
             return false;
         }
 
+        // Check for username not exist
+        targetAccountId = accmgr.GetId(targetAccountName);
+        if (!targetAccountId)
+        {
+            PSendSysMessage(LANG_ACCOUNT_NOT_EXIST,targetAccountName.c_str());
+            SetSentErrorMessage(true);
+            return false;
+        }
+
         // Check for invalid specified GM level.
         gm = atoi(arg2);
         if ((gm < SEC_PLAYER || gm > SEC_ADMINISTRATOR))
@@ -4005,7 +4014,7 @@ bool ChatHandler::HandleReviveCommand(const char *args)
 
     if (player)
     {
-        player->ResurrectPlayer(0.5f);
+        player->ResurrectPlayer(player->GetSession()->GetSecurity() > SEC_PLAYER ? 1.0f : 0.5f);
         player->SpawnCorpseBones();
         player->SaveToDB();
     }
@@ -6214,7 +6223,7 @@ bool ChatHandler::HandleWritePDumpCommand(const char *args)
 
     uint32 guid;
     // character name can't start from number
-    if (isNumeric(p2[0]))
+    if (isNumeric(p2))
         guid = atoi(p2);
     else
     {

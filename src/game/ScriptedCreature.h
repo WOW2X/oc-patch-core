@@ -41,12 +41,6 @@ class SummonList : public std::list<uint64>
         Creature *me;
 };
 
-//Get a single creature of given entry
-Unit* FindCreature(uint32 entry, float range, Unit* Finder);
-
-//Get a single gameobject of given entry
-GameObject* FindGameObject(uint32 entry, float range, Unit* Finder);
-
 struct ScriptedAI : public CreatureAI
 {
     explicit ScriptedAI(Creature* pCreature);
@@ -57,8 +51,6 @@ struct ScriptedAI : public CreatureAI
     //*************
 
     void AttackStartNoMove(Unit *pTarget);
-    void AttackStart(Unit *);
-    void AttackStart(Unit *, bool melee);
 
     // Called at any Damage from any attacker (before damage apply)
     void DamageTaken(Unit* /*pDone_by*/, uint32& /*uiDamage*/) {}
@@ -128,18 +120,6 @@ struct ScriptedAI : public CreatureAI
     //Cast spell by spell info
     void DoCastSpell(Unit* pTarget, SpellEntry const* pSpellInfo, bool bTriggered = false);
 
-    //Creature say
-    void DoSay(const char* text, uint32 language, Unit* target, bool SayEmote = false);
-
-    //Creature Yell
-    void DoYell(const char* text, uint32 language, Unit* target);
-
-    //Creature Text emote, optional bool for boss emote text
-    void DoTextEmote(const char* text, Unit* target, bool IsBossEmote = false);
-
-    //Creature whisper, optional bool for boss whisper
-    void DoWhisper(const char* text, Unit* reciever, bool IsBossWhisper = false);
-
     //Plays a sound to all nearby players
     void DoPlaySoundToSet(WorldObject* pSource, uint32 sound);
 
@@ -179,7 +159,7 @@ struct ScriptedAI : public CreatureAI
     bool HealthBelowPct(uint32 pct) const { return me->GetHealth() * 100 < me->GetMaxHealth() * pct; }
 
     //Returns spells that meet the specified criteria from the creatures spell list
-    SpellEntry const* SelectSpell(Unit* Target, int32 School, int32 Mechanic, SelectTargetType Targets,  uint32 PowerCostMin, uint32 PowerCostMax, float RangeMin, float RangeMax, SelectEffect Effect);
+    SpellEntry const* SelectSpell(Unit* Target, uint32 School, uint32 Mechanic, SelectTargetType Targets,  uint32 PowerCostMin, uint32 PowerCostMax, float RangeMin, float RangeMax, SelectEffect Effect);
 
     //Checks if you can cast the specified spell
     bool CanCast(Unit* pTarget, SpellEntry const* pSpell, bool bTriggered = false);
@@ -229,9 +209,11 @@ struct BossAI : public ScriptedAI
         void _JustDied();
 };
 
-// SD2 grid searchers
-//return closest creature alive in grid, with range from pSource
-Creature *GetClosestCreatureWithEntry(WorldObject *pSource, uint32 Entry, float MaxSearchRange);
+// SD2 grid searchers.
+Creature *GetClosestCreatureWithEntry(WorldObject *pSource, uint32 uiEntry, float fMaxSearchRange, bool bAlive = true);
+GameObject *GetClosestGameObjectWithEntry(WorldObject *pSource, uint32 uiEntry, float fMaxSearchRange);
+void GetCreatureListWithEntryInGrid(std::list<Creature*>& lList, WorldObject* pSource, uint32 uiEntry, float fMaxSearchRange);
+void GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList, WorldObject* pSource, uint32 uiEntry, float fMaxSearchRange);
 
 #endif
 

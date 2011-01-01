@@ -133,8 +133,8 @@ struct aqsentinelAI : public ScriptedAI
 
     void GiveBuddyMyList(Creature *c)
     {
-        aqsentinelAI *cai = (aqsentinelAI *)(c->AI());
-        for (int i=0; i<3; i++)
+        aqsentinelAI *cai = CAST_AI(aqsentinelAI, (c)->AI());
+        for (int i=0; i<3; ++i)
             if (nearby[i] && nearby[i] != c)
                 cai->AddBuddyToList(nearby[i]);
         cai->AddBuddyToList(me);
@@ -142,14 +142,14 @@ struct aqsentinelAI : public ScriptedAI
 
     void SendMyListToBuddies()
     {
-        for (int i=0; i<3; i++)
+        for (int i=0; i<3; ++i)
             if (nearby[i])
                 GiveBuddyMyList(nearby[i]);
     }
 
     void CallBuddiesToAttack(Unit *who)
     {
-        for (int i=0; i<3; i++)
+        for (int i=0; i<3; ++i)
         {
             Creature *c = nearby[i];
             if (c)
@@ -164,19 +164,13 @@ struct aqsentinelAI : public ScriptedAI
         }
     }
 
-    void AddSentinelsNear(Unit *nears)
+    void AddSentinelsNear(Unit * /*nears*/)
     {
-        CellPair p(Oregon::ComputeCellPair(nears->GetPositionX(), nears->GetPositionY()));
-        Cell cell(p);
-        cell.data.Part.reserved = ALL_DISTRICT;
-        cell.SetNoCreate();
-
         std::list<Creature*> assistList;
+        me->GetCreatureListWithEntryInGrid(assistList,15264,70.0f);
 
-        NearbyAQSentinel u_check(nears);
-        Oregon::CreatureListSearcher<NearbyAQSentinel> searcher(assistList, u_check);
-        TypeContainerVisitor<Oregon::CreatureListSearcher<NearbyAQSentinel>, GridTypeMapContainer >  grid_creature_searcher(searcher);
-        cell.Visit(p, grid_creature_searcher, *(nears->GetMap()));
+        if (assistList.empty())
+            return;
 
         for (std::list<Creature*>::iterator iter = assistList.begin(); iter != assistList.end(); ++iter)
             AddBuddyToList((*iter));
@@ -184,9 +178,9 @@ struct aqsentinelAI : public ScriptedAI
 
     int pickAbilityRandom(bool *chosenAbilities)
     {
-        for (int t = 0; t < 2; t++)
+        for (int t = 0; t < 2; ++t)
         {
-            for (int i = !t ? (rand()%9) : 0; i < 9; i++)
+            for (int i = !t ? (rand()%9) : 0; i < 9; ++i)
             {
                 if (!chosenAbilities[i])
                 {
@@ -207,7 +201,7 @@ struct aqsentinelAI : public ScriptedAI
         ClearBudyList();
         AddSentinelsNear(me);
         int bli;
-        for (bli = 0; bli < 3;bli++)
+        for (bli = 0; bli < 3; ++bli)
         {
             if (!nearby[bli])
                 break;
@@ -227,7 +221,7 @@ struct aqsentinelAI : public ScriptedAI
     {
         if (!me->isDead())
         {
-            for (int i=0; i<3; i++)
+            for (int i=0; i<3; ++i)
             {
                 if (!nearby[i])
                     continue;
@@ -258,7 +252,7 @@ struct aqsentinelAI : public ScriptedAI
         }
     }
 
-    void EnterCombat(Unit *who)
+    void EnterCombat(Unit * who)
     {
         if (gatherOthersWhenAggro)
             GetOtherSentinels(who);
@@ -267,9 +261,9 @@ struct aqsentinelAI : public ScriptedAI
         DoZoneInCombat();
     }
 
-    void JustDied(Unit*)
+    void JustDied(Unit* /*who*/)
     {
-        for (int ni=0; ni<3; ni++)
+        for (int ni=0; ni<3; ++ni)
         {
             Creature *sent = nearby[ni];
             if (!sent)
@@ -280,7 +274,7 @@ struct aqsentinelAI : public ScriptedAI
             if (h > sent->GetMaxHealth())
                 h = sent->GetMaxHealth();
             sent->SetHealth(h);
-            ((aqsentinelAI *)sent->AI())->GainSentinelAbility(ability);
+            CAST_AI(aqsentinelAI, sent->AI())->GainSentinelAbility(ability);
         }
     }
 

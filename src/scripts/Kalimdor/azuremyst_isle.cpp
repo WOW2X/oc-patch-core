@@ -392,15 +392,15 @@ CreatureAI* GetAI_npc_magwinAI(Creature* pCreature)
 ## npc_geezle
 ######*/
 
-#define GEEZLE_SAY_1    -1000259
-#define SPARK_SAY_2     -1000260
-#define SPARK_SAY_3     -1000261
-#define GEEZLE_SAY_4    -1000262
-#define SPARK_SAY_5     -1000263
-#define SPARK_SAY_6     -1000264
-#define GEEZLE_SAY_7    -1000265
+#define GEEZLE_SAY_1    -1000728
+#define SPARK_SAY_2     -1000729
+#define SPARK_SAY_3     -1000730
+#define GEEZLE_SAY_4    -1000731
+#define SPARK_SAY_5     -1000732
+#define SPARK_SAY_6     -1000733
+#define GEEZLE_SAY_7    -1000734
 
-#define EMOTE_SPARK     -1000266
+#define EMOTE_SPARK     -1000735
 
 #define MOB_SPARK       17243
 #define GO_NAGA_FLAG    181694
@@ -410,8 +410,6 @@ static float SparkPos[3] = {-5030.95f, -11291.99f, 7.97f};
 struct npc_geezleAI : public ScriptedAI
 {
     npc_geezleAI(Creature *c) : ScriptedAI(c) {}
-
-    std::list<GameObject*> FlagList;
 
     uint64 SparkGUID;
 
@@ -486,17 +484,9 @@ struct npc_geezleAI : public ScriptedAI
 
     void DespawnNagaFlag(bool despawn)
     {
-        CellPair pair(Oregon::ComputeCellPair(me->GetPositionX(), me->GetPositionY()));
-        Cell cell(pair);
-        cell.data.Part.reserved = ALL_DISTRICT;
-        cell.SetNoCreate();
+        std::list<GameObject*> FlagList;
+        me->GetGameObjectListWithEntryInGrid(FlagList,GO_NAGA_FLAG, 100.0f);
 
-        Oregon::AllGameObjectsWithEntryInGrid go_check(GO_NAGA_FLAG);
-        Oregon::GameObjectListSearcher<Oregon::AllGameObjectsWithEntryInGrid> go_search(FlagList, go_check);
-        TypeContainerVisitor <Oregon::GameObjectListSearcher<Oregon::AllGameObjectsWithEntryInGrid>, GridTypeMapContainer> go_visit(go_search);
-        cell.Visit(pair, go_visit, *(me->GetMap()));
-
-        Player* player = NULL;
         if (!FlagList.empty())
         {
             for (std::list<GameObject*>::iterator itr = FlagList.begin(); itr != FlagList.end(); ++itr)

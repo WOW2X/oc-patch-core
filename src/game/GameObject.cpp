@@ -60,6 +60,7 @@ GameObject::GameObject() : WorldObject()
     m_spellId = 0;
     m_cooldownTime = 0;
     m_goInfo = NULL;
+    m_ritualOwner = NULL;
     m_goData = NULL;
 
     m_DBTableGuid = 0;
@@ -263,11 +264,7 @@ void GameObject::Update(uint32 diff)
                             Unit* caster = GetOwner();
                             if (caster && caster->GetTypeId() == TYPEID_PLAYER)
                             {
-                                if (caster->m_currentSpells[CURRENT_CHANNELED_SPELL])
-                                {
-                                    caster->m_currentSpells[CURRENT_CHANNELED_SPELL]->SendChannelUpdate(0);
-                                    caster->m_currentSpells[CURRENT_CHANNELED_SPELL]->finish(false);
-                                }
+                                caster->FinishSpell(CURRENT_CHANNELED_SPELL);
 
                                 WorldPacket data(SMSG_FISH_NOT_HOOKED,0);
                                 caster->ToPlayer()->GetSession()->SendPacket(&data);
@@ -943,6 +940,7 @@ void GameObject::Use(Unit* user)
     // by default spell caster is user
     Unit* spellCaster = user;
     uint32 spellId = 0;
+    bool triggered = false;
 
     switch(GetGoType())
     {
@@ -1179,11 +1177,7 @@ void GameObject::Use(Unit* user)
                 }
             }
 
-            if (player->m_currentSpells[CURRENT_CHANNELED_SPELL])
-            {
-                player->m_currentSpells[CURRENT_CHANNELED_SPELL]->SendChannelUpdate(0);
-                player->m_currentSpells[CURRENT_CHANNELED_SPELL]->finish();
-            }
+            player->FinishSpell(CURRENT_CHANNELED_SPELL);
             return;
         }
 
@@ -1194,37 +1188,72 @@ void GameObject::Use(Unit* user)
 
             Player* player = user->ToPlayer();
 
-            Unit* caster = GetOwner();
+            Unit* owner = GetOwner();
 
             GameObjectInfo const* info = GetGOInfo();
 
-            if (!caster || caster->GetTypeId() != TYPEID_PLAYER)
-                return;
+            // ritual owner is set for GO's without owner (not summoned)
+            if (!m_ritualOwner && !owner)
+                m_ritualOwner = player;
 
-            // accept only use by player from same group for caster except caster itself
-            if (caster->ToPlayer() == player || !caster->ToPlayer()->IsInSameRaidWith(player))
-                return;
+            if (owner)
+            {
+                if (owner->GetTypeId() != TYPEID_PLAYER)
+                    return;
+
+                // accept only use by player from same group as owner, excluding owner itself (unique use already added in spell effect)
+                if (player == owner->ToPlayer() || (info->summoningRitual.castersGrouped && !player->IsInSameRaidWith(owner->ToPlayer())))
+                    return;
+
+                // expect owner to already be channeling, so if not...
+                if (!owner->GetCurrentSpell(CURRENT_CHANNELED_SPELL))
+                    return;
+
+                // in case summoning ritual caster is GO creator
+                spellCaster = owner;
+            }
+            else
+            {
+                if (player != m_ritualOwner && (info->summoningRitual.castersGrouped && !player->IsInSameRaidWith(m_ritualOwner)))
+                    return;
+
+                spellCaster = player;
+            }
 
             AddUniqueUse(player);
 
+            if (info->summoningRitual.animSpell)
+            {
+                player->CastSpell(player, info->summoningRitual.animSpell, true);
+
+                // for this case, summoningRitual.spellId is always triggered
+                triggered = true;
+            }
+
             // full amount unique participants including original summoner
-            if (GetUniqueUseCount() < info->summoningRitual.reqParticipants)
+            if (GetUniqueUseCount() == info->summoningRitual.reqParticipants)
+            {
+                spellCaster = m_ritualOwner ? m_ritualOwner : spellCaster;
+
+                spellId = info->summoningRitual.spellId;
+
+                // finish owners spell
+                if (owner)
+                    owner->FinishSpell(CURRENT_CHANNELED_SPELL);
+
+                // can be deleted now, if
+                if (!info->summoningRitual.ritualPersistent)
+                    SetLootState(GO_JUST_DEACTIVATED);
+                else
+                {
+                    // reset ritual for this GO
+                    m_ritualOwner = NULL;
+                    m_unique_users.clear();
+                    m_usetimes = 0;
+                }
+            }
+            else
                 return;
-
-            // in case summoning ritual caster is GO creator
-            spellCaster = caster;
-
-            if (!caster->m_currentSpells[CURRENT_CHANNELED_SPELL])
-                return;
-
-            spellId = info->summoningRitual.spellId;
-
-            // finish spell
-            caster->m_currentSpells[CURRENT_CHANNELED_SPELL]->SendChannelUpdate(0);
-            caster->m_currentSpells[CURRENT_CHANNELED_SPELL]->finish();
-
-            // can be deleted now
-            SetLootState(GO_JUST_DEACTIVATED);
 
             // go to end function to spell casting
             break;
@@ -1368,7 +1397,7 @@ void GameObject::Use(Unit* user)
         return;
     }
 
-    Spell *spell = new Spell(spellCaster, spellInfo, false);
+    Spell *spell = new Spell(spellCaster, spellInfo, triggered);
 
     // spell target is user of GO
     SpellCastTargets targets;

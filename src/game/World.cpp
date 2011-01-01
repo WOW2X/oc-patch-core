@@ -827,6 +827,8 @@ void World::LoadConfigSettings(bool reload)
         m_configs[CONFIG_START_GM_LEVEL] = MAX_LEVEL;
     }
 
+    m_configs[CONFIG_CHANCE_OF_GM_SURVEY] = sConfig.GetFloatDefault("GM.TicketSystem.ChanceOfGMSurvey", 0.0f);
+
     m_configs[CONFIG_GROUP_VISIBILITY] = sConfig.GetIntDefault("Visibility.GroupMode", 1);
 
     m_configs[CONFIG_MAIL_DELIVERY_DELAY] = sConfig.GetIntDefault("MailDeliveryDelay", HOUR);
@@ -1059,6 +1061,11 @@ void World::LoadConfigSettings(bool reload)
         sLog.outError("Visibility.Distance.InFlight can't be greater %f",MAX_VISIBILITY_DISTANCE-m_VisibleObjectGreyDistance);
         m_MaxVisibleDistanceInFlight = MAX_VISIBILITY_DISTANCE - m_VisibleObjectGreyDistance;
     }
+
+    ///- Load the CharDelete related config options
+    m_configs[CONFIG_CHARDELETE_METHOD] = sConfig.GetIntDefault("CharDelete.Method", 0);
+    m_configs[CONFIG_CHARDELETE_MIN_LEVEL] = sConfig.GetIntDefault("CharDelete.MinLevel", 0);
+    m_configs[CONFIG_CHARDELETE_KEEP_DAYS] = sConfig.GetIntDefault("CharDelete.KeepDays", 30);
 
     m_visibility_notify_periodOnContinents = sConfig.GetIntDefault("Visibility.Notify.Period.OnContinents", DEFAULT_VISIBILITY_NOTIFY_PERIOD);
     m_visibility_notify_periodInInstances = sConfig.GetIntDefault("Visibility.Notify.Period.InInstances",   DEFAULT_VISIBILITY_NOTIFY_PERIOD);
@@ -1596,6 +1603,9 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading GM tickets...");
     ticketmgr.LoadGMTickets();
 
+    sLog.outString("Loading GM surveys...");
+    ticketmgr.LoadGMSurveys();
+
     // Handle outdated emails (delete/return)
     sLog.outString("Returning old mails...");
     objmgr.ReturnOrDeleteOldMails(false);
@@ -1656,6 +1666,9 @@ void World::SetInitialWorldSettings()
                                                             //erase corpses every 20 minutes
     m_timers[WUPDATE_CLEANDB].SetInterval(m_configs[CONFIG_LOGDB_CLEARINTERVAL]*MINUTE*IN_MILLISECONDS);
                                                             // clean logs table every 14 days by default
+
+    m_timers[WUPDATE_DELETECHARS].SetInterval(DAY*IN_MILLISECONDS); // check for chars to delete every day
+
     m_timers[WUPDATE_AUTOBROADCAST].SetInterval(getConfig(CONFIG_AUTOBROADCAST_INTERVAL));
     //to set mailtimer to return mails every day between 4 and 5 am
     //mailtimer is increased when updating auctions
@@ -1718,6 +1731,9 @@ void World::SetInitialWorldSettings()
     }
     else
         sLog.SetLogDB(false);
+
+    // Delete all characters which have been deleted X days before
+    Player::DeleteOldCharacters();
 
     sLog.outString("WORLD: World initialized");
 }
@@ -1963,6 +1979,13 @@ void World::Update(time_t diff)
 
     sOutdoorPvPMgr.Update(diff);
     RecordTimeDiff("UpdateOutdoorPvPMgr");
+
+    ///- Delete all characters which have been deleted X days before
+    if (m_timers[WUPDATE_DELETECHARS].Passed())
+    {
+        m_timers[WUPDATE_DELETECHARS].Reset();
+        Player::DeleteOldCharacters();
+    }
 
     // execute callbacks from sql queries that were queued recently
     UpdateResultQueue();

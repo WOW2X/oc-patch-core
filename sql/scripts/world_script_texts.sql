@@ -3,14 +3,14 @@
 -- valid entries for table are between -1000000 and -1999999
 -- 
 
-TRUNCATE `script_texts`;
-
 -- 
 -- -1 000 000 First 100 entries are reserved for special use, do not add regular text here.
 -- 
-
+DELETE FROM `script_texts` WHERE entry BETWEEN -1999925 AND -1000000;
 INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
-(-1000000,'<OregonScript Text Entry Missing!>',0,0,0,0,'DEFAULT_TEXT');
+(-1000000,'<OregonScript Text Entry Missing!>',0,0,0,0,'DEFAULT_TEXT'),
+(-1000001,'%s goes into a killing frenzy!',0,2,0,0,'EMOTE_GENERIC_FRENZY_KILL'),
+(-1000004,'goes into a berserker rage!',0,2,0,0,'EMOTE_GENERIC_BERSERK');
 
 -- 
 -- Normal text entries. Say/Yell/Whisper/Emote for any regular world object.
@@ -155,7 +155,7 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1000207,'You have my blessing',0,0,0,0,'ashyen_and_keleth SAY_REWARD_BLESS'),
 
 (-1000208,'No one challanges the Wastewander nomads - not even robotic chickens! ATTACK!',0,0,0,0,'oox SAY_OOX17_AMBUSH_REPLY'),
-   
+
 (-1000209,'Very well. Let\'s see what you have to show me, $N.',0,0,1,0,'anvilward SAY_ANVIL1'),
 (-1000210,'What manner of trick is this, $R? If you seek to ambush me, I warn you I will not go down quietly!',0,0,1,0,'anvilward SAY_ANVIL2'),
 
@@ -692,7 +692,16 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1000724,'...as a deserter, you\'ll enjoy activities like tethered swimming and dog grooming? How ridiculous!',0,0,0,0,'Theramore Guard - SAY_QUEST6'),
 (-1000725,'This... this is a joke, right?',0,0,0,0,'Theramore Guard - SAY_QUEST7'),
 (-1000726,'I\'d never join anything like this. Better keep this, though. It\'ll come in handy in the privy...',0,0,0,0,'Theramore Guard - SAY_QUEST8'),
-(-1000727,'What a bunch of lunatics! You actually believe this stuff?',0,0,0,0,'Theramore Guard - SAY_QUEST9');
+(-1000727,'What a bunch of lunatics! You actually believe this stuff?',0,0,0,0,'Theramore Guard - SAY_QUEST9'),
+
+(-1000728,'What\'s the big idea, Spark? Why\'d you call for this meeting?',0,0,0,0,'geezle - GEEZLE_SAY_1'),
+(-1000729,'What\'s the big idea? You nearly blew my cover, idiot! I told you to put the compass and navigation maps somewhere safe - not out in the open for any fool to discover.',0,0,0,4,'geezle - SPARK_SAY_2'),
+(-1000730,'The Master has gone to great lengths to secure information about the whereabouts of the Exodar. You could have blown the entire operation, including the cover of our spy on the inside.',0,0,0,0,'geezle - SPARK_SAY_3'),
+(-1000731,'Relax, Spark! I have it all under control. We\'ll strip mine the Exodar right out from under\'em - making both you and I very, very rich in the process.',0,0,0,4,'geezle - GEEZLE_SAY_4'),
+(-1000732,'Relax? Do you know what Kael\'thas does to those that fail him, Geezle? Eternal suffering and pain... Do NOT screw this up, fool.',0,0,0,0,'geezle - SPARK_SAY_5'),
+(-1000733,'Our Bloodmyst scouts have located our contact. The fool, Velen, will soon leave himself open and defenseless -- long enough for us to strike! Now get out of my sight before I vaporize you...',0,0,0,0,'geezle - SPARK_SAY_6'),
+(-1000734,'Yes, sir. It won\'t happen again...',0,0,0,0,'geezle - GEEZLE_SAY_7'),
+(-1000735,'picks up the naga flag.', 0, 2, 0, 0, 'geezle - EMOTE_SPARK');
 
 -- -1 033 000 SHADOWFANG KEEP
 INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`emote`,`comment`) VALUES
@@ -907,6 +916,11 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1309023,'Minions of Hakkar, hear your God. The sanctity of this temple has been compromised. Invaders encroach upon holy ground! The Altar of Blood must be protected. Kill them all!',0,1,0,'hakkar SAY_PROTECT_ALTAR');
 
 -- -1 329 000 STRATHOLME
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`comment`) VALUES
+(-1329000,'Thanks to Egan',0,0,0,'freed_soul SAY_ZAPPED0'),
+(-1329001,'Rivendare must die',0,0,0,'freed_soul SAY_ZAPPED1'),
+(-1329002,'Who you gonna call?',0,0,0,'freed_soul SAY_ZAPPED2'),
+(-1329003,'Don''t cross those beams!',0,0,0,'freed_soul SAY_ZAPPED3');
 
 -- -1 349 000 MARAUDON
 
@@ -1201,7 +1215,13 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1540038,'That\'s because I do all the hard work!',10321,1,0,'omrogg KillingDelay_1'),
 (-1540039,'This all...your fault!',10311,1,0,'omrogg YELL_DIE_L'),
 (-1540040,'I...hate...you...',10322,1,0,'omrogg YELL_DIE_R'),
-(-1540041,'enrages',0,2,0,'omrogg EMOTE_ENRAGE');
+(-1540041,'enrages',0,2,0,'omrogg EMOTE_ENRAGE'),
+(-1540042,'Ours is the true Horde! The only Horde!',10323,1,0,'kargath SAY_AGGRO1'),
+(-1540043,'I''ll carve the meat from your bones!',10324,1,0,'kargath SAY_AGGRO2'),
+(-1540044,'I am called Bladefist for a reason, as you will see!',10325,1,0,'kargath SAY_AGGRO3'),
+(-1540045,'For the real Horde!',10326,1,0,'kargath SAY_SLAY1'),
+(-1540046,'I am the only Warchief!',10327,1,0,'kargath SAY_SLAY2'),
+(-1540047,'The true Horde... will.. prevail...',10328,1,0,'kargath SAY_DEATH');
 
 -- -1 542 000 BLOOD FURNACE
 INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`comment`) VALUES
@@ -1865,6 +1885,35 @@ INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,
 (-1585027,'Master... grant me strength.',12419,1,0,'kaelthas MT SAY_TIRED'),
 (-1585028,'Do not... get too comfortable.',12420,1,0,'kaelthas MT SAY_RECAST_GRAVITY'),
 (-1585029,'My demise accomplishes nothing! The Master will have you! You will drown in your own blood! This world shall burn! Aaaghh!',12421,1,0,'kaelthas MT SAY_DEATH');
+
+-- -1 810 000 ALTERAC VALLEY
+INSERT INTO `script_texts` (`entry`,`content_default`,`sound`,`type`,`language`,`comment`) VALUES
+(-1810000,'Stormpike filth! In my keep?! Slay them all!',0,1,0,'DREKTHAR_YELL_AGGRO'),
+(-1810001,'You seek to draw the General of the Frostwolf legion out from his fortress? PREPOSTEROUS!',0,1,0,'DREKTHAR_YELL_EVADE'),
+(-1810002,'Stormpike weaklings, face me in my fortress - if you dare!',0,1,0,'DREKTHAR_YELL_RESPAWN'),
+(-1810003,'Your attacks are slowed by the cold, I think!',0,1,0,'DREKTHAR_YELL_RANDOM1'),
+(-1810004,'Today, you will meet your ancestors!',0,1,0,'DREKTHAR_YELL_RANDOM2'),
+(-1810005,'If you will not leave Alterac Valley on your own, then the Frostwolves will force you out!',0,1,0,'DREKTHAR_YELL_RANDOM3'),
+(-1810006,'You cannot defeat the Frostwolf clan!',0,1,0,'DREKTHAR_YELL_RANDOM4'),
+(-1810007,'You are no match for the strength of the Horde!',0,1,0,'DREKTHAR_YELL_RANDOM5'),
+
+(-1810008,'Soldiers of Stormpike, your General is under attack! I require aid! Come! Come! Slay these mangy Frostwolf dogs.',0,1,0,'VANNDAR_YELL_AGGRO'),
+(-1810009,'You''ll never get me out of me bunker, heathens!',0,1,0,'VANNDAR_YELL_EVADE'),
+(-1810010,'Take no prisoners! Drive these heathens from our lands!',0,1,0,'VANNDAR_YELL_RESPAWN1'),
+(-1810011,'I will tell you this much...Alterac Valley will be ours.',0,1,0,'VANNDAR_YELL_RESPAWN2'),
+(-1810012,'Why don''t ya try again without yer cheap tactics, pansies! Or are you too chicken?',0,1,0,'VANNDAR_YELL_RANDOM1'),
+(-1810013,'Your attacks are weak! Go practice on some rabbits and come back when you''re stronger.',0,1,0,'VANNDAR_YELL_RANDOM2'),
+(-1810014,'We will not be swayed from our mission!',0,1,0,'VANNDAR_YELL_RANDOM3'),
+(-1810015,'It''ll take more than you rabble to bring me down!',0,1,0,'VANNDAR_YELL_RANDOM4'),
+(-1810016,'We, the Alliance, will prevail!',0,1,0,'VANNDAR_YELL_RANDOM5'),
+(-1810017,'The Stormpike clan bows to no one, especially the horde!',0,1,0,'VANNDAR_YELL_RANDOM6'),
+(-1810018,'Is that the best you can do?',0,1,0,'VANNDAR_YELL_RANDOM7'),
+
+(-1810019,'Begone, uncouth scum! The Alliance shall prevail in Alterac Valley!',0,1,0,'BALINDA_YELL_AGGRO'),
+(-1810020,'Filthy Frostwolf cowards! If you want a fight, you''ll have to come to me!',0,1,0,'BALINDA_YELL_EVADE'),
+
+(-1810021,'Die! Your kind has no place in Alterac Valley!',0,1,0,'GALVANGAR_YELL_AGGRO'),
+(-1810022,'I''ll never fall for that, fool! If you want a battle it will be on my terms and in my lair!',0,1,0,'GALVANGAR_YELL_EVADE');
 
 -- 
 -- Below just for beautiful view in table, run at own desire

@@ -180,14 +180,16 @@ struct boss_nightbaneAI : public ScriptedAI
             pInstance->SetData(DATA_NIGHTBANE_EVENT, IN_PROGRESS);
 
         HandleTerraceDoors(false);
-        DoYell(YELL_AGGRO, LANG_UNIVERSAL, NULL);
+        me->MonsterYell(YELL_AGGRO, LANG_UNIVERSAL, NULL);
     }
 
     void AttackStart(Unit* who)
     {
         if (!Intro && !Flying)
-            if (Phase == 1) ScriptedAI::AttackStart(who);
-            else ScriptedAI::AttackStart(who,false);
+            if (Phase == 1)
+                ScriptedAI::AttackStart(who);
+            else
+                AttackStartNoMove(who);
     }
 
     void JustDied(Unit* killer)
@@ -202,11 +204,11 @@ struct boss_nightbaneAI : public ScriptedAI
     void MoveInLineOfSight(Unit *who)
     {
         if (!Intro && !Flying)
-        {
             if (!me->getVictim() && me->canStartAttack(who))
-                if (Phase == 1) ScriptedAI::AttackStart(who);
-                else ScriptedAI::AttackStart(who,false);
-        }
+                if (Phase == 1)
+                    ScriptedAI::AttackStart(who);
+                else
+                    AttackStartNoMove(who);
     }
 
     void MovementInform(uint32 type, uint32 id)
@@ -234,7 +236,7 @@ struct boss_nightbaneAI : public ScriptedAI
             {
                 DoResetThreat();
                 DoStartNoMovement(me->getVictim());
-                DoTextEmote(EMOTE_BREATH, NULL, true);
+                me->MonsterTextEmote(EMOTE_BREATH, 0, true);
                 Skeletons = false;
                 Flying = false;
                 Phase = 2;
@@ -268,7 +270,7 @@ struct boss_nightbaneAI : public ScriptedAI
 
     void TakeOff()
     {
-        DoYell(YELL_FLY_PHASE, LANG_UNIVERSAL, NULL);
+        me->MonsterYell(YELL_FLY_PHASE, LANG_UNIVERSAL, NULL);
 
         me->InterruptSpell(CURRENT_GENERIC_SPELL);
         me->HandleEmoteCommand(EMOTE_ONESHOT_LIFTOFF);
@@ -441,13 +443,11 @@ struct boss_nightbaneAI : public ScriptedAI
 
             if (FlyTimer <= diff) //landing
             {
-                if (rand()%2 == 0)
-                    DoYell(YELL_LAND_PHASE_1, LANG_UNIVERSAL, NULL);
-                else
-                    DoYell(YELL_LAND_PHASE_2, LANG_UNIVERSAL, NULL);
+                me->MonsterYell(RAND(*YELL_LAND_PHASE_1,*YELL_LAND_PHASE_2), LANG_UNIVERSAL, NULL);
 
-                (*me).GetMotionMaster()->Clear(false);
+                me->GetMotionMaster()->Clear(false);
                 me->GetMotionMaster()->MovePoint(3,IntroWay[3][0],IntroWay[3][1],IntroWay[3][2]);
+
                 Flying = true;
 
             } else FlyTimer -= diff;

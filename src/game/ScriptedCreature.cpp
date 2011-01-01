@@ -93,29 +93,6 @@ void ScriptedAI::AttackStartNoMove(Unit* pWho)
         DoStartNoMovement(pWho);
 }
 
-void ScriptedAI::AttackStart(Unit* pWho)
-{
-    if (!pWho)
-        return;
-
-    if (me->Attack(pWho, true))
-    {
-        DoStartMovement(pWho);
-    }
-}
-
-void ScriptedAI::AttackStart(Unit* pWho, bool melee)
-{
-    if (!pWho)
-        return;
-
-    if (!melee)
-        AttackStartNoMove(pWho);
-    else
-        AttackStart(pWho);
-
-}
-
 void ScriptedAI::UpdateAI(const uint32 /*uiDiff*/)
 {
     //Check if we have a current target
@@ -160,37 +137,6 @@ void ScriptedAI::DoCastSpell(Unit* pTarget, SpellEntry const* pSpellInfo, bool b
 
     me->StopMoving();
     me->CastSpell(pTarget, pSpellInfo, bTriggered);
-}
-
-void ScriptedAI::DoSay(const char* text, uint32 language, Unit* target, bool SayEmote)
-{
-    if (target)
-    {
-        me->Say(text, language, target->GetGUID());
-        if (SayEmote)
-            me->HandleEmoteCommand(EMOTE_ONESHOT_TALK);
-    }
-    else me->Say(text, language, 0);
-}
-
-void ScriptedAI::DoYell(const char* text, uint32 language, Unit* target)
-{
-    if (target) me->Yell(text, language, target->GetGUID());
-    else me->Yell(text, language, 0);
-}
-
-void ScriptedAI::DoTextEmote(const char* text, Unit* target, bool IsBossEmote)
-{
-    if (target) me->TextEmote(text, target->GetGUID(), IsBossEmote);
-    else me->TextEmote(text, 0, IsBossEmote);
-}
-
-void ScriptedAI::DoWhisper(const char* text, Unit* reciever, bool IsBossWhisper)
-{
-    if (!reciever || reciever->GetTypeId() != TYPEID_PLAYER)
-        return;
-
-    me->Whisper(text, reciever->GetGUID(), IsBossWhisper);
 }
 
 void ScriptedAI::DoPlaySoundToSet(WorldObject* pSource, uint32 uiSoundId)
@@ -241,12 +187,13 @@ Unit* ScriptedAI::SelectUnit(SelectAggroTarget pTarget, uint32 uiPosition)
         advance (ritr , uiPosition);
         return Unit::GetUnit((*me),(*ritr)->getUnitGuid());
         break;
-    }
 
-    return NULL;
+    default:
+        return UnitAI::SelectTarget(pTarget, uiPosition);
+    }
 }
 
-SpellEntry const* ScriptedAI::SelectSpell(Unit* pTarget, int32 uiSchool, int32 uiMechanic, SelectTargetType selectTargets, uint32 uiPowerCostMin, uint32 uiPowerCostMax, float fRangeMin, float fRangeMax, SelectEffect selectEffects)
+SpellEntry const* ScriptedAI::SelectSpell(Unit* pTarget, uint32 uiSchool, uint32 uiMechanic, SelectTargetType selectTargets, uint32 uiPowerCostMin, uint32 uiPowerCostMax, float fRangeMin, float fRangeMax, SelectEffect selectEffects)
 {
     //No target so we can't cast
     if (!pTarget)
@@ -284,11 +231,11 @@ SpellEntry const* ScriptedAI::SelectSpell(Unit* pTarget, int32 uiSchool, int32 u
             continue;
 
         //Check for school if specified
-        if (uiSchool >= 0 && pTempSpell->SchoolMask & uiSchool)
+        if (uiSchool && (pTempSpell->SchoolMask & uiSchool) == 0)
             continue;
 
         //Check for spell mechanic if specified
-        if (uiMechanic >= 0 && pTempSpell->Mechanic != uiMechanic)
+        if (uiMechanic && pTempSpell->Mechanic != uiMechanic)
             continue;
 
         //Make sure that the spell uses the requested amount of power
@@ -511,28 +458,6 @@ void ScriptedAI::DoTeleportAll(float fX, float fY, float fZ, float fO)
                 i_pl->TeleportTo(me->GetMapId(), fX, fY, fZ, fO, TELE_TO_NOT_LEAVE_COMBAT);
 }
 
-Unit* FindCreature(uint32 entry, float range, Unit* Finder)
-{
-    if (!Finder)
-        return NULL;
-    Creature* target = NULL;
-    Oregon::AllCreaturesOfEntryInRange check(Finder, entry, range);
-    Oregon::CreatureSearcher<Oregon::AllCreaturesOfEntryInRange> searcher(target, check);
-    Finder->VisitNearbyObject(range, searcher);
-    return target;
-}
-
-GameObject* FindGameObject(uint32 entry, float range, Unit* Finder)
-{
-    if (!Finder)
-        return NULL;
-    GameObject* target = NULL;
-    Oregon::AllGameObjectsWithEntryInGrid go_check(entry);
-    Oregon::GameObjectSearcher<Oregon::AllGameObjectsWithEntryInGrid> searcher(target, go_check);
-    Finder->VisitNearbyGridObject(range, searcher);
-    return target;
-}
-
 Unit* ScriptedAI::DoSelectLowestHpFriendly(float fRange, uint32 uiMinHPDiff)
 {
     Unit* pUnit = NULL;
@@ -565,8 +490,6 @@ Player* ScriptedAI::GetPlayerAtMinimumRange(float fMinimumRange)
 {
     Player* pPlayer = NULL;
 
-    //NO IMPLEMENTED IN TC1 YET...
-    /*
     CellPair pair(Oregon::ComputeCellPair(me->GetPositionX(), me->GetPositionY()));
     Cell cell(pair);
     cell.data.Part.reserved = ALL_DISTRICT;
@@ -575,8 +498,8 @@ Player* ScriptedAI::GetPlayerAtMinimumRange(float fMinimumRange)
     Oregon::PlayerAtMinimumRangeAway check(me, fMinimumRange);
     Oregon::PlayerSearcher<Oregon::PlayerAtMinimumRangeAway> searcher(pPlayer, check);
     TypeContainerVisitor<Oregon::PlayerSearcher<Oregon::PlayerAtMinimumRangeAway>, GridTypeMapContainer> visitor(searcher);
+
     cell.Visit(pair, visitor, *(me->GetMap()));
-    */
 
     return pPlayer;
 }
@@ -733,20 +656,21 @@ void LoadOverridenSQLData()
             goInfo->trap.radius = 50;
 }
 
-Creature* GetClosestCreatureWithEntry(WorldObject* pSource, uint32 Entry, float MaxSearchRange)
+// SD2 grid searchers.
+Creature *GetClosestCreatureWithEntry(WorldObject *pSource, uint32 uiEntry, float fMaxSearchRange, bool bAlive)
 {
-    Creature* pCreature = NULL;
-
-    CellPair pair(Oregon::ComputeCellPair(pSource->GetPositionX(), pSource->GetPositionY()));
-    Cell cell(pair);
-    cell.data.Part.reserved = ALL_DISTRICT;
-    cell.SetNoCreate();
-
-    Oregon::NearestCreatureEntryWithLiveStateInObjectRangeCheck creature_check(*pSource, Entry, true, MaxSearchRange);
-    Oregon::CreatureLastSearcher<Oregon::NearestCreatureEntryWithLiveStateInObjectRangeCheck> searcher(pCreature, creature_check);
-    TypeContainerVisitor<Oregon::CreatureLastSearcher<Oregon::NearestCreatureEntryWithLiveStateInObjectRangeCheck>, GridTypeMapContainer> creature_searcher(searcher);
-    cell.Visit(pair, creature_searcher,*(pSource->GetMap()));
-
-    return pCreature;
+    return pSource->FindNearestCreature(uiEntry, fMaxSearchRange, bAlive);
+}
+GameObject *GetClosestGameObjectWithEntry(WorldObject *pSource, uint32 uiEntry, float fMaxSearchRange)
+{
+    return pSource->FindNearestGameObject(uiEntry, fMaxSearchRange);
+}
+void GetCreatureListWithEntryInGrid(std::list<Creature*>& lList, WorldObject *pSource, uint32 uiEntry, float fMaxSearchRange)
+{
+    return pSource->GetCreatureListWithEntryInGrid(lList, uiEntry, fMaxSearchRange);
+}
+void GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList, WorldObject *pSource, uint32 uiEntry, float fMaxSearchRange)
+{
+    return pSource->GetGameObjectListWithEntryInGrid(lList, uiEntry, fMaxSearchRange);
 }
 

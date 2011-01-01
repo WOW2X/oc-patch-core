@@ -271,6 +271,9 @@ CREATE TABLE `characters` (
   `death_expire_time` bigint(20) unsigned NOT NULL default '0',
   `taxi_path` text,
   `arena_pending_points` int (10) UNSIGNED NOT NULL default '0',
+  `deleteInfos_Account` int(11) UNSIGNED default NULL,
+  `deleteInfos_Name` varchar(12) default NULL,
+  `deleteDate` bigint(20) default NULL,
   `latency` int(11) unsigned NOT NULL default '0',
   PRIMARY KEY  (`guid`),
   KEY `idx_account` (`account`),
@@ -819,6 +822,8 @@ CREATE TABLE `gm_tickets` (
   `closed` int(10) NOT NULL default '0',
   `assignedto` int(10) NOT NULL default '0',
   `comment` text NOT NULL,
+  `escalated` int(11) NOT NULL DEFAULT '0',
+  `viewed` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY  (`guid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Player System';
 
@@ -829,6 +834,31 @@ CREATE TABLE `gm_tickets` (
 LOCK TABLES `gm_tickets` WRITE;
 /*!40000 ALTER TABLE `gm_tickets` DISABLE KEYS */;
 /*!40000 ALTER TABLE `gm_tickets` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `gm_surveys`
+--
+
+DROP TABLE IF EXISTS `gm_surveys`;
+CREATE TABLE `gm_surveys` (
+  `surveyid` int(10) NOT NULL auto_increment,
+  `AppropriateAnswer` tinyint(3) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'Did the GM provide an appropriate answer or solution to your question/problem?',
+  `Understandability` tinyint(3) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'How easy was it to understand and/or follow the information provided?',
+  `GMRating` tinyint(3) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'Was the GM knowledgeable, respectful and empathetic during your interactions?',
+  `ResponseTime` tinyint(3) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'How would you rate the response time to address your petition?',
+  `OverallGMExperience` tinyint(3) UNSIGNED NOT NULL DEFAULT '0' COMMENT 'How would you rate the overall experience with the GM that assisted you with your petition?',
+  `comment` longtext,
+  PRIMARY KEY (`surveyid`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='Player System';
+
+--
+-- Dumping data for table `gm_surveys`
+--
+
+LOCK TABLES `gm_surveys` WRITE;
+/*!40000 ALTER TABLE `gm_surveys` DISABLE KEYS */;
+/*!40000 ALTER TABLE `gm_surveys` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --

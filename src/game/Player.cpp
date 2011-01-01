@@ -1610,9 +1610,7 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
         return false;                                       // normal client can't teleport to this map...
     }
     else
-    {
-        sLog.outDebug("Player %s will teleported to map %u", GetName(), mapid);
-    }
+        sLog.outDebug("Player %s is being teleported to map %u", GetName(), mapid);
 
     // if we were on a transport, leave
     if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && m_transport)
@@ -1780,10 +1778,11 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
                 }
                 GetSession()->SendPacket(&data);
                 SendSavedInstances();
-
-                // remove from old map now
-                if (oldmap) oldmap->Remove(this, false);
             }
+
+            // remove from old map now
+            if (oldmap)
+                oldmap->Remove(this, false);
 
             // new final coordinates
             float final_x = x;
@@ -3733,8 +3732,32 @@ TrainerSpellState Player::GetTrainerSpellState(TrainerSpell const* trainer_spell
     return TRAINER_SPELL_GREEN;
 }
 
-void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmChars)
+/**
+ * Deletes a character from the database
+ *
+ * The way, how the characters will be deleted is decided based on the config option.
+ *
+ * @see Player::DeleteOldCharacters
+ *
+ * @param playerguid       the low-GUID from the player which should be deleted
+ * @param accountId        the account id from the player
+ * @param updateRealmChars when this flag is set, the amount of characters on that realm will be updated in the realmlist
+ * @param deleteFinally    if this flag is set, the config option will be ignored and the character will be permanently removed from the database
+ */
+void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmChars, bool deleteFinally)
 {
+    // for not existed account avoid update realm
+    if (accountId == 0)
+        updateRealmChars = false;
+
+    uint32 charDelete_method = sWorld.getConfig(CONFIG_CHARDELETE_METHOD);
+    uint32 charDelete_minLvl = sWorld.getConfig(CONFIG_CHARDELETE_MIN_LEVEL);
+
+    // if we want to finally delete the character or the character does not meet the level requirement
+    // we set it to mode CHAR_DELETE_REMOVE
+    if (deleteFinally || Player::GetLevelFromDB(playerguid) < charDelete_minLvl)
+        charDelete_method = CHAR_DELETE_REMOVE;
+
     uint32 guid = GUID_LOPART(playerguid);
 
     // convert corpse to bones if exist (to prevent exiting Corpse in World without DB entry)
@@ -3742,13 +3765,9 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
     ObjectAccessor::Instance().ConvertCorpseForPlayer(playerguid);
 
     // remove from guild
-    uint32 guildId = GetGuildIdFromDB(playerguid);
-    if (guildId != 0)
-    {
-        Guild* guild = objmgr.GetGuildById(guildId);
-        if (guild)
+    if (uint32 guildId = GetGuildIdFromDB(playerguid))
+        if (Guild* guild = objmgr.GetGuildById(guildId))
             guild->DelMember(guid);
-    }
 
     // remove from arena teams
     uint32 at_id = GetArenaTeamIdFromDB(playerguid,ARENA_TEAM_2v2);
@@ -3788,122 +3807,179 @@ void Player::DeleteFromDB(uint64 playerguid, uint32 accountId, bool updateRealmC
     // remove signs from petitions (also remove petitions if owner);
     RemovePetitionsAndSigns(playerguid, 10);
 
-    // return back all mails with COD and Item                        0  1           2              3      4       5          6     7
-    QueryResult_AutoPtr resultMail = CharacterDatabase.PQuery("SELECT id,messageType,mailTemplateId,sender,subject,itemTextId,money,has_items FROM mail WHERE receiver='%u' AND has_items<>0 AND cod<>0", guid);
-    if (resultMail)
+    switch(charDelete_method)
     {
-        do
+        // completely remove from the database
+        case CHAR_DELETE_REMOVE:
         {
-            Field *fields = resultMail->Fetch();
-
-            uint32 mail_id       = fields[0].GetUInt32();
-            uint16 mailType      = fields[1].GetUInt16();
-            uint16 mailTemplateId= fields[2].GetUInt16();
-            uint32 sender        = fields[3].GetUInt32();
-            std::string subject  = fields[4].GetCppString();
-            uint32 itemTextId    = fields[5].GetUInt32();
-            uint32 money         = fields[6].GetUInt32();
-            bool has_items       = fields[7].GetBool();
-
-            //we can return mail now
-            //so firstly delete the old one
-            CharacterDatabase.PExecute("DELETE FROM mail WHERE id = '%u'", mail_id);
-
-            // mail not from player
-            if (mailType != MAIL_NORMAL)
+            // return back all mails with COD and Item                        0  1           2              3      4       5          6     7
+            QueryResult_AutoPtr resultMail = CharacterDatabase.PQuery("SELECT id,messageType,mailTemplateId,sender,subject,itemTextId,money,has_items FROM mail WHERE receiver='%u' AND has_items<>0 AND cod<>0", guid);
+            if (resultMail)
             {
-                if (has_items)
-                    CharacterDatabase.PExecute("DELETE FROM mail_items WHERE mail_id = '%u'", mail_id);
-                continue;
-            }
-
-            MailDraft draft(subject, itemTextId);
-            if (mailTemplateId)
-                draft = MailDraft(mailTemplateId, false); // items already included
-
-            if (has_items)
-            {
-                QueryResult_AutoPtr resultItems = CharacterDatabase.PQuery("SELECT item_guid,item_template FROM mail_items WHERE mail_id='%u'", mail_id);
-                if (resultItems)
+                do
                 {
-                    do
+                    Field *fields = resultMail->Fetch();
+
+                    uint32 mail_id       = fields[0].GetUInt32();
+                    uint16 mailType      = fields[1].GetUInt16();
+                    uint16 mailTemplateId= fields[2].GetUInt16();
+                    uint32 sender        = fields[3].GetUInt32();
+                    std::string subject  = fields[4].GetCppString();
+                    uint32 itemTextId    = fields[5].GetUInt32();
+                    uint32 money         = fields[6].GetUInt32();
+                    bool has_items       = fields[7].GetBool();
+
+                    // we can return mail now
+                    // so firstly delete the old one
+                    CharacterDatabase.PExecute("DELETE FROM mail WHERE id = '%u'", mail_id);
+
+                    // mail not from player
+                    if (mailType != MAIL_NORMAL)
                     {
-                        Field *fields2 = resultItems->Fetch();
-
-                        uint32 item_guidlow = fields2[0].GetUInt32();
-                        uint32 item_template = fields2[1].GetUInt32();
-
-                        ItemPrototype const* itemProto = objmgr.GetItemPrototype(item_template);
-                        if (!itemProto)
-                        {
-                            CharacterDatabase.PExecute("DELETE FROM item_instance WHERE guid = '%u'", item_guidlow);
-                            continue;
-                        }
-
-                        Item *pItem = NewItemOrBag(itemProto);
-                        if (!pItem->LoadFromDB(item_guidlow, MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER)))
-                        {
-                            pItem->FSetState(ITEM_REMOVED);
-                            pItem->SaveToDB();              // it also deletes item object !
-                            continue;
-                        }
-
-                        draft.AddItem(pItem);
+                        if (has_items)
+                            CharacterDatabase.PExecute("DELETE FROM mail_items WHERE mail_id = '%u'", mail_id);
+                        continue;
                     }
-                    while (resultItems->NextRow());
+
+                    MailDraft draft(subject, itemTextId);
+                    if (mailTemplateId)
+                        draft = MailDraft(mailTemplateId, false);   // items already included
+
+                    if (has_items)
+                    {
+                        // data needs to be at first place for Item::LoadFromDB
+                        QueryResult_AutoPtr resultItems = CharacterDatabase.PQuery("SELECT data,item_guid,item_template FROM mail_items JOIN item_instance ON item_guid = guid WHERE mail_id='%u'", mail_id);
+                        if (resultItems)
+                        {
+                            do
+                            {
+                                Field *fields2 = resultItems->Fetch();
+
+                                uint32 item_guidlow = fields2[1].GetUInt32();
+                                uint32 item_template = fields2[2].GetUInt32();
+
+                                ItemPrototype const* itemProto = ObjectMgr::GetItemPrototype(item_template);
+                                if (!itemProto)
+                                {
+                                    CharacterDatabase.PExecute("DELETE FROM item_instance WHERE guid = '%u'", item_guidlow);
+                                    continue;
+                                }
+
+                                Item *pItem = NewItemOrBag(itemProto);
+                                if (!pItem->LoadFromDB(item_guidlow, MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER),resultItems))
+                                {
+                                    pItem->FSetState(ITEM_REMOVED);
+                                    pItem->SaveToDB();              // it also deletes item object !
+                                    continue;
+                                }
+
+                                draft.AddItem(pItem);
+                            }
+                            while (resultItems->NextRow());
+                        }
+                    }
+
+                    CharacterDatabase.PExecute("DELETE FROM mail_items WHERE mail_id = '%u'", mail_id);
+
+                    uint32 pl_account = objmgr.GetPlayerAccountIdByGUID(MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER));
+
+                    draft.AddMoney(money).SendReturnToSender(pl_account, guid, sender);
                 }
+                while (resultMail->NextRow());
             }
 
-            CharacterDatabase.PExecute("DELETE FROM mail_items WHERE mail_id = '%u'", mail_id);
+            // unsummon and delete for pets in world is not required: player deleted from CLI or character list with not loaded pet.
+            // Get guids of character's pets, will deleted in transaction
+            QueryResult_AutoPtr resultPets = CharacterDatabase.PQuery("SELECT id FROM character_pet WHERE owner = '%u'",guid);
 
-            uint32 pl_account = objmgr.GetPlayerAccountIdByGUID(MAKE_NEW_GUID(guid, 0, HIGHGUID_PLAYER));
+            // NOW we can finally clear other DB data related to character
+            CharacterDatabase.BeginTransaction();
+            if (resultPets)
+            {
+                do
+                {
+                    Field *fields3 = resultPets->Fetch();
+                    uint32 petguidlow = fields3[0].GetUInt32();
+                    Pet::DeleteFromDB(petguidlow);
+                } while (resultPets->NextRow());
+            }
 
-            draft.AddMoney(money).SendReturnToSender(pl_account, guid, sender);
+            CharacterDatabase.PExecute("DELETE FROM characters WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_declinedname WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_action WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_aura WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_gifts WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_homebind WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_instance WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM group_instance WHERE leaderGuid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_inventory WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_queststatus WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_queststatus_daily WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_reputation WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_spell WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_spell_cooldown WHERE guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM gm_tickets WHERE playerGuid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM item_instance WHERE owner_guid = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_social WHERE guid = '%u' OR friend='%u'",guid,guid);
+            CharacterDatabase.PExecute("DELETE FROM mail WHERE receiver = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM mail_items WHERE receiver = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_pet WHERE owner = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM character_pet_declinedname WHERE owner = '%u'",guid);
+            CharacterDatabase.PExecute("DELETE FROM guild_eventlog WHERE PlayerGuid1 = '%u' OR PlayerGuid2 = '%u'",guid, guid);
+            CharacterDatabase.PExecute("DELETE FROM guild_bank_eventlog WHERE PlayerGuid = '%u'",guid);
+
+            CharacterDatabase.CommitTransaction();
+            break;
         }
-        while (resultMail->NextRow());
+        // The character gets unlinked from the account, the name gets freed up and appears as deleted ingame
+        case CHAR_DELETE_UNLINK:
+            CharacterDatabase.PExecute("UPDATE characters SET deleteInfos_Name=name, deleteInfos_Account=account, deleteDate='" UI64FMTD "', name='', account=0 WHERE guid=%u", uint64(time(NULL)), guid);
+            break;
+        default:
+            sLog.outError("Player::DeleteFromDB: Unsupported delete method: %u.", charDelete_method);
     }
 
-    // unsummon and delete for pets in world is not required: player deleted from CLI or character list with not loaded pet.
-    // Get guids of character's pets, will deleted in transaction
-    QueryResult_AutoPtr resultPets = CharacterDatabase.PQuery("SELECT id FROM character_pet WHERE owner = '%u'",guid);
+    if (updateRealmChars)
+        sWorld.UpdateRealmCharCount(accountId);
+}
 
-    // NOW we can finally clear other DB data related to character
-    CharacterDatabase.BeginTransaction();
-    if (resultPets)
+/**
+ * Characters which were kept back in the database after being deleted and are now too old (see config option "CharDelete.KeepDays"), will be completely deleted.
+ *
+ * @see Player::DeleteFromDB
+ */
+void Player::DeleteOldCharacters()
+{
+    uint32 keepDays = sWorld.getConfig(CONFIG_CHARDELETE_KEEP_DAYS);
+    if (!keepDays)
+        return;
+
+    Player::DeleteOldCharacters(keepDays);
+}
+
+/**
+ * Characters which were kept back in the database after being deleted and are older than the specified amount of days, will be completely deleted.
+ *
+ * @see Player::DeleteFromDB
+ *
+ * @param keepDays overrite the config option by another amount of days
+ */
+void Player::DeleteOldCharacters(uint32 keepDays)
+{
+    sLog.outString("Player::DeleteOldChars: Deleting all characters which have been deleted %u days before...", keepDays);
+
+    QueryResult_AutoPtr resultChars = CharacterDatabase.PQuery("SELECT guid, deleteInfos_Account FROM characters WHERE deleteDate IS NOT NULL AND deleteDate < %u", uint64(time(NULL) - time_t(keepDays * DAY)));
+    if (resultChars)
     {
+        sLog.outString("Player::DeleteOldChars: Found %u character(s) to delete",resultChars->GetRowCount());
         do
         {
-            Field *fields3 = resultPets->Fetch();
-            uint32 petguidlow = fields3[0].GetUInt32();
-            Pet::DeleteFromDB(petguidlow);
-        } while (resultPets->NextRow());
+            Field *charFields = resultChars->Fetch();
+            Player::DeleteFromDB(charFields[0].GetUInt64(), charFields[1].GetUInt32(), true, true);
+        }
+        while(resultChars->NextRow());
     }
 
-    CharacterDatabase.PExecute("DELETE FROM characters WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_declinedname WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_action WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_aura WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_gifts WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_homebind WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_instance WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM group_instance WHERE leaderGuid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_inventory WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_queststatus WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_queststatus_daily WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_reputation WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_spell WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_spell_cooldown WHERE guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM gm_tickets WHERE playerGuid = '%u'", guid);
-    CharacterDatabase.PExecute("DELETE FROM item_instance WHERE owner_guid = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_social WHERE guid = '%u' OR friend='%u'",guid,guid);
-    CharacterDatabase.PExecute("DELETE FROM mail WHERE receiver = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM mail_items WHERE receiver = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_pet WHERE owner = '%u'",guid);
-    CharacterDatabase.PExecute("DELETE FROM character_pet_declinedname WHERE owner = '%u'",guid);
-    CharacterDatabase.CommitTransaction();
-
-    //LoginDatabase.PExecute("UPDATE realmcharacters SET numchars = numchars - 1 WHERE acctid = %d AND realmid = %d", accountId, realmID);
-    if (updateRealmChars) sWorld.UpdateRealmCharCount(accountId);
 }
 
 void Player::SetMovement(PlayerMovementType pType)
@@ -4396,10 +4472,8 @@ void Player::RepopAtGraveyard()
     WorldSafeLocsEntry const *ClosestGrave = NULL;
 
     // Special handle for battleground maps
-    BattleGround *bg = sBattleGroundMgr.GetBattleGround(GetBattleGroundId());
-
-    if (bg && (bg->GetTypeID() == BATTLEGROUND_AB || bg->GetTypeID() == BATTLEGROUND_EY || bg->GetTypeID() == BATTLEGROUND_AV))
-        ClosestGrave = bg->GetClosestGraveYard(GetPositionX(), GetPositionY(), GetPositionZ(), GetTeam());
+    if (BattleGround *bg = GetBattleGround())
+        ClosestGrave = bg->GetClosestGraveYard(this);
     else
         ClosestGrave = objmgr.GetClosestGraveYard(GetPositionX(), GetPositionY(), GetPositionZ(), GetMapId(), GetTeam());
 
@@ -14927,8 +15001,8 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
         }
     }
 
-    // if the player is in an instance and it has been reset in the meantime teleport him to the entrance
-    if (instanceId && !sInstanceSaveManager.GetInstanceSave(instanceId))
+    // if the player is in an instance (not a bg) and it has been reset in the meantime teleport him to the entrance
+    if (instanceId && !m_bgData.bgInstanceID && !sInstanceSaveManager.GetInstanceSave(instanceId))
     {
         AreaTrigger const* at = objmgr.GetMapEntranceTrigger(mapId);
         if (at)
@@ -14937,6 +15011,7 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
         {
             sLog.outError("Player %s(GUID: %u) logged in to a reset instance (map: %u) and there is no area-trigger leading to this map. Thus he can't be ported back to the entrance. This _might_ be an exploit attempt.", GetName(), GetGUIDLow(), mapId);
             RelocateToHomebind();
+            map = MapManager::Instance().CreateMap(mapId, this, instanceId);
         }
     }
 
@@ -17840,8 +17915,8 @@ bool Player::ActivateTaxiPathTo(std::vector<uint32> const& nodes, uint32 mount_i
 
     // not let cheating with start flight in time of logout process || if casting not finished || while in combat || if not use Spell's with EffectSendTaxi
     if (GetSession()->isLogingOut() ||
-        (!m_currentSpells[CURRENT_GENERIC_SPELL] ||
-        m_currentSpells[CURRENT_GENERIC_SPELL]->m_spellInfo->Effect[0] != SPELL_EFFECT_SEND_TAXI)&&
+        (!GetCurrentSpell(CURRENT_GENERIC_SPELL) ||
+        GetCurrentSpell(CURRENT_GENERIC_SPELL)->m_spellInfo->Effect[0] != SPELL_EFFECT_SEND_TAXI) &&
         IsNonMeleeSpellCasted(false) ||
         isInCombat())
     {
@@ -19788,12 +19863,10 @@ void Player::RemoveItemDependentAurasAndCasts(Item * pItem)
     }
 
     // currently casted spells can be dependent from item
-    for (uint32 i = 0; i < CURRENT_MAX_SPELL; i++)
-    {
-        if (m_currentSpells[i] && m_currentSpells[i]->getState() != SPELL_STATE_DELAYED &&
-            !HasItemFitToSpellReqirements(m_currentSpells[i]->m_spellInfo,pItem))
-            InterruptSpell(i);
-    }
+    for (uint32 i = 0; i < CURRENT_MAX_SPELL; ++i)
+        if (Spell* spell = GetCurrentSpell(CurrentSpellTypes(i)))
+            if (spell->getState() != SPELL_STATE_DELAYED && !HasItemFitToSpellReqirements(spell->m_spellInfo, pItem))
+                InterruptSpell(CurrentSpellTypes(i));
 }
 
 uint32 Player::GetResurrectionSpellId()

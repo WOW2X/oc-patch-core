@@ -278,7 +278,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint8 updateFlags) const
 
                 if (ToPlayer()->isInFlight())
                 {
-                    WPAssert(const_cast<Player*>(ToPlayer())->GetMotionMaster()->GetCurrentMovementGeneratorType() == FLIGHT_MOTION_TYPE);
+                    ASSERT(const_cast<Player*>(ToPlayer())->GetMotionMaster()->GetCurrentMovementGeneratorType() == FLIGHT_MOTION_TYPE);
                     moveFlags = (MOVEFLAG_FORWARD | MOVEFLAG_SPLINE_ENABLED);
                 }
             }
@@ -395,7 +395,7 @@ void Object::_BuildMovementUpdate(ByteBuffer * data, uint8 updateFlags) const
                 return;
             }
 
-            WPAssert(const_cast<Player*>(ToPlayer())->GetMotionMaster()->GetCurrentMovementGeneratorType() == FLIGHT_MOTION_TYPE);
+            ASSERT(const_cast<Player*>(ToPlayer())->GetMotionMaster()->GetCurrentMovementGeneratorType() == FLIGHT_MOTION_TYPE);
 
             FlightPathMovementGenerator *fmg = (FlightPathMovementGenerator*)(const_cast<Player*>(ToPlayer())->GetMotionMaster()->top());
 
@@ -539,7 +539,7 @@ void Object::_BuildValuesUpdate(uint8 updatetype, ByteBuffer * data, UpdateMask 
         }
     }
 
-    WPAssert(updateMask && updateMask->GetCount() == m_valuesCount);
+    ASSERT(updateMask && updateMask->GetCount() == m_valuesCount);
 
     *data << (uint8)updateMask->GetBlockCount();
     data->append(updateMask->GetMask(), updateMask->GetLength());
@@ -1426,50 +1426,17 @@ void Object::ForceValuesUpdateAtIndex(uint32 i)
 
 namespace Oregon
 {
-    class MessageChatLocaleCacheDo
+    class MonsterChatBuilder
     {
         public:
-            MessageChatLocaleCacheDo(WorldObject const& obj, ChatMsg msgtype, int32 textId, uint32 language, uint64 targetGUID, float dist)
-                : i_object(obj), i_msgtype(msgtype), i_textId(textId), i_language(language),
-                i_targetGUID(targetGUID), i_dist(dist)
+            MonsterChatBuilder(WorldObject const& obj, ChatMsg msgtype, int32 textId, uint32 language, uint64 targetGUID)
+                : i_object(obj), i_msgtype(msgtype), i_textId(textId), i_language(language), i_targetGUID(targetGUID) {}
+            void operator()(WorldPacket& data, int32 loc_idx)
             {
-            }
+                char const* text = objmgr.GetOregonString(i_textId,loc_idx);
 
-            ~MessageChatLocaleCacheDo()
-            {
-                for (int i = 0; i < i_data_cache.size(); ++i)
-                    delete i_data_cache[i];
-            }
-
-            void operator()(Player* p)
-            {
-                // skip far away players
-                if (p->GetDistance(&i_object) > i_dist)
-                    return;
-
-                uint32 loc_idx = p->GetSession()->GetSessionDbLocaleIndex();
-                uint32 cache_idx = loc_idx+1;
-                WorldPacket* data;
-
-                // create if not cached yet
-                if (i_data_cache.size() < cache_idx+1 || !i_data_cache[cache_idx])
-                {
-                    if (i_data_cache.size() < cache_idx+1)
-                        i_data_cache.resize(cache_idx+1);
-
-                    char const* text = objmgr.GetOregonString(i_textId,loc_idx);
-
-                    data = new WorldPacket(SMSG_MESSAGECHAT, 200);
-
-                    // TODO: i_object.GetName() also must be localized?
-                    i_object.BuildMonsterChat(data,i_msgtype,text,i_language,i_object.GetNameForLocaleIdx(loc_idx),i_targetGUID);
-
-                    i_data_cache[cache_idx] = data;
-                }
-                else
-                    data = i_data_cache[cache_idx];
-
-                p->SendDirectMessage(data);
+                // TODO: i_object.GetName() also must be localized?
+                i_object.BuildMonsterChat(&data,i_msgtype,text,i_language,i_object.GetNameForLocaleIdx(loc_idx),i_targetGUID);
             }
 
         private:
@@ -1478,8 +1445,6 @@ namespace Oregon
             int32 i_textId;
             uint32 i_language;
             uint64 i_targetGUID;
-            float i_dist;
-            std::vector<WorldPacket*> i_data_cache;             // 0 = default, i => i-1 locale index
     };
 }                                                           // namespace Oregon
 
@@ -1491,9 +1456,10 @@ void WorldObject::MonsterSay(int32 textId, uint32 language, uint64 TargetGuid)
     cell.data.Part.reserved = ALL_DISTRICT;
     cell.SetNoCreate();
 
-    Oregon::MessageChatLocaleCacheDo say_do(*this, CHAT_MSG_MONSTER_SAY, textId,language,TargetGuid,sWorld.getConfig(CONFIG_LISTEN_RANGE_SAY));
-    Oregon::PlayerWorker<Oregon::MessageChatLocaleCacheDo> say_worker(say_do);
-    TypeContainerVisitor<Oregon::PlayerWorker<Oregon::MessageChatLocaleCacheDo>, WorldTypeMapContainer > message(say_worker);
+    Oregon::MonsterChatBuilder say_build(*this, CHAT_MSG_MONSTER_SAY, textId,language,TargetGuid);
+    Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> say_do(say_build);
+    Oregon::PlayerDistWorker<Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> > say_worker(sWorld.getConfig(CONFIG_LISTEN_RANGE_SAY), say_do);
+    TypeContainerVisitor<Oregon::PlayerDistWorker<Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld.getConfig(CONFIG_LISTEN_RANGE_SAY));
 }
 
@@ -1505,15 +1471,17 @@ void WorldObject::MonsterYell(int32 textId, uint32 language, uint64 TargetGuid)
     cell.data.Part.reserved = ALL_DISTRICT;
     cell.SetNoCreate();
 
-    Oregon::MessageChatLocaleCacheDo say_do(*this, CHAT_MSG_MONSTER_YELL, textId,language,TargetGuid,sWorld.getConfig(CONFIG_LISTEN_RANGE_YELL));
-    Oregon::PlayerWorker<Oregon::MessageChatLocaleCacheDo> say_worker(say_do);
-    TypeContainerVisitor<Oregon::PlayerWorker<Oregon::MessageChatLocaleCacheDo>, WorldTypeMapContainer > message(say_worker);
+    Oregon::MonsterChatBuilder say_build(*this, CHAT_MSG_MONSTER_YELL, textId,language,TargetGuid);
+    Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> say_do(say_build);
+    Oregon::PlayerDistWorker<Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> > say_worker(sWorld.getConfig(CONFIG_LISTEN_RANGE_YELL), say_do);
+    TypeContainerVisitor<Oregon::PlayerDistWorker<Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld.getConfig(CONFIG_LISTEN_RANGE_YELL));
 }
 
 void WorldObject::MonsterYellToZone(int32 textId, uint32 language, uint64 TargetGuid)
 {
-    Oregon::MessageChatLocaleCacheDo say_do(*this, CHAT_MSG_MONSTER_YELL, textId,language,TargetGuid,sWorld.getConfig(CONFIG_LISTEN_RANGE_YELL));
+    Oregon::MonsterChatBuilder say_build(*this, CHAT_MSG_MONSTER_YELL, textId,language,TargetGuid);
+    Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> say_do(say_build);
 
     uint32 zoneid = GetZoneId();
 
@@ -1531,9 +1499,10 @@ void WorldObject::MonsterTextEmote(int32 textId, uint64 TargetGuid, bool IsBossE
     cell.data.Part.reserved = ALL_DISTRICT;
     cell.SetNoCreate();
 
-    Oregon::MessageChatLocaleCacheDo say_do(*this, IsBossEmote ? CHAT_MSG_RAID_BOSS_EMOTE : CHAT_MSG_MONSTER_EMOTE, textId,LANG_UNIVERSAL,TargetGuid,sWorld.getConfig(CONFIG_LISTEN_RANGE_TEXTEMOTE));
-    Oregon::PlayerWorker<Oregon::MessageChatLocaleCacheDo> say_worker(say_do);
-    TypeContainerVisitor<Oregon::PlayerWorker<Oregon::MessageChatLocaleCacheDo>, WorldTypeMapContainer > message(say_worker);
+    Oregon::MonsterChatBuilder say_build(*this, IsBossEmote ? CHAT_MSG_RAID_BOSS_EMOTE : CHAT_MSG_MONSTER_EMOTE, textId,LANG_UNIVERSAL,TargetGuid);
+    Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> say_do(say_build);
+    Oregon::PlayerDistWorker<Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> > say_worker(sWorld.getConfig(CONFIG_LISTEN_RANGE_TEXTEMOTE), say_do);
+    TypeContainerVisitor<Oregon::PlayerDistWorker<Oregon::LocalizedPacketDo<Oregon::MonsterChatBuilder> >, WorldTypeMapContainer > message(say_worker);
     cell.Visit(p, message, *GetMap(), *this, sWorld.getConfig(CONFIG_LISTEN_RANGE_TEXTEMOTE));
 }
 
@@ -1862,6 +1831,34 @@ GameObject* WorldObject::FindNearestGameObject(uint32 entry, float range)
     Oregon::GameObjectLastSearcher<Oregon::NearestGameObjectEntryInObjectRangeCheck> searcher(go, checker);
     VisitNearbyGridObject(range, searcher);
     return go;
+}
+
+void WorldObject::GetGameObjectListWithEntryInGrid(std::list<GameObject*>& lList, uint32 uiEntry, float fMaxSearchRange)
+{
+    CellPair pair(Oregon::ComputeCellPair(this->GetPositionX(), this->GetPositionY()));
+    Cell cell(pair);
+    cell.data.Part.reserved = ALL_DISTRICT;
+    cell.SetNoCreate();
+
+    Oregon::AllGameObjectsWithEntryInRange check(this, uiEntry, fMaxSearchRange);
+    Oregon::GameObjectListSearcher<Oregon::AllGameObjectsWithEntryInRange> searcher(lList, check);
+    TypeContainerVisitor<Oregon::GameObjectListSearcher<Oregon::AllGameObjectsWithEntryInRange>, GridTypeMapContainer> visitor(searcher);
+
+    cell.Visit(pair, visitor, *(this->GetMap()));
+}
+
+void WorldObject::GetCreatureListWithEntryInGrid(std::list<Creature*>& lList, uint32 uiEntry, float fMaxSearchRange)
+{
+    CellPair pair(Oregon::ComputeCellPair(this->GetPositionX(), this->GetPositionY()));
+    Cell cell(pair);
+    cell.data.Part.reserved = ALL_DISTRICT;
+    cell.SetNoCreate();
+
+    Oregon::AllCreaturesOfEntryInRange check(this, uiEntry, fMaxSearchRange);
+    Oregon::CreatureListSearcher<Oregon::AllCreaturesOfEntryInRange> searcher(lList, check);
+    TypeContainerVisitor<Oregon::CreatureListSearcher<Oregon::AllCreaturesOfEntryInRange>, GridTypeMapContainer> visitor(searcher);
+
+    cell.Visit(pair, visitor, *(this->GetMap()));
 }
 
 void WorldObject::GetNearPoint2D(float &x, float &y, float distance2d, float absAngle) const
