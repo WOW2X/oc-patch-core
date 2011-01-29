@@ -451,7 +451,7 @@ Player::Player (WorldSession *session): Unit()
     //Default movement to run mode
     m_unit_movement_flags = 0;
 
-    m_miniPet = 0;
+    m_mover = this;
 
     m_seer = this;
 
@@ -461,6 +461,7 @@ Player::Player (WorldSession *session): Unit()
 
     m_isActive = true;
 
+    m_ControlledByPlayer = true;
     m_isWorldObject = true;
 
     m_chatSpyGuid = 0;
@@ -1369,10 +1370,6 @@ void Player::setDeathState(DeathState s)
         //FIXME: is pet dismissed at dying or releasing spirit? if second, add setDeathState(DEAD) to HandleRepopRequestOpcode and define pet unsummon here with (s == DEAD)
         RemovePet(NULL, PET_SAVE_NOT_IN_SLOT, true);
 
-        // remove uncontrolled pets
-        RemoveMiniPet();
-        RemoveGuardians();
-
         // save value before aura remove in Unit::setDeathState
         ressSpellId = GetUInt32Value(PLAYER_SELF_RES_SPELL);
 
@@ -1899,9 +1896,6 @@ void Player::RemoveFromWorld()
         // Release charmed creatures, unsummon totems and remove pets/guardians
         StopCastingCharm();
         StopCastingBindSight();
-        UnsummonAllTotems();
-        RemoveMiniPet();
-        RemoveGuardians();
         sOutdoorPvPMgr.HandlePlayerLeaveZone(this, m_zoneUpdateId);
     }
 
@@ -1949,7 +1943,7 @@ void Player::RewardRage(uint32 damage, uint32 weaponSpeedHitFactor, bool attacke
 
         // Berserker Rage effect
         if (HasAura(18499,0))
-            addRage *= 1.3;
+            addRage *= 2.0;
     }
 
     addRage *= sWorld.getRate(RATE_POWER_RAGE_INCOME);
@@ -4664,7 +4658,7 @@ uint32 Player::GetShieldBlockValue() const
 {
     BaseModGroup modGroup = SHIELD_BLOCK_VALUE;
 
-    float value = GetTotalBaseModValue(modGroup) + GetStat(STAT_STRENGTH)/20 - 1;
+    float value = (m_auraBaseMod[SHIELD_BLOCK_VALUE][FLAT_MOD] + GetStat(STAT_STRENGTH) * 0.05f - 1)*m_auraBaseMod[SHIELD_BLOCK_VALUE][PCT_MOD];
 
     value = (value < 0) ? 0 : value;
 
@@ -7397,17 +7391,16 @@ void Player::CastItemCombatSpell(Unit *target, WeaponAttackType attType, uint32 
                         }
                         if (slot != i)
                             continue;
+                        
                         // Check if item is useable (forms or disarm)
                         if (attType == BASE_ATTACK)
                         {
                             if (!IsUseEquippedWeapon(true))
                                 continue;
                         }
-                        else
-                        {
-                            if (IsInFeralForm())
-                                continue;
-                        }
+                        
+                        if (IsInFeralForm())
+                            continue;
                     }
                     CastItemCombatSpell(target, attType, procVictim, procEx, item, proto, spellInfo);
                 }
@@ -14766,7 +14759,6 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
     //Need to call it to initialize m_team (m_team can be calculated from race)
     //Other way is to saves m_team into characters table.
     setFactionForRace(getRace());
-    SetCharm(NULL);
 
     // load home bind and check in same time class/race pair, it used later for restore broken positions
     if (!_LoadHomeBind(holder->GetResult(PLAYER_LOGIN_QUERY_LOADHOMEBIND)))
@@ -15094,10 +15086,11 @@ bool Player::LoadFromDB(uint32 guid, SqlQueryHolder *holder)
     SetUInt32Value(UNIT_CHANNEL_SPELL,0);
 
     // clear charm/summon related fields
+    SetUInt64Value(UNIT_FIELD_SUMMONEDBY, 0);
+    SetUInt64Value(UNIT_FIELD_CHARMEDBY, 0);
     SetUInt64Value(UNIT_FIELD_CHARM, 0);
+    SetUInt64Value(UNIT_FIELD_SUMMON, 0);
     SetUInt64Value(PLAYER_FARSIGHT, 0);
-    SetPet(NULL);
-    SetOwnerGUID(NULL);
     SetCreatorGUID(NULL);
 
     // reset some aura modifiers before aura apply
@@ -15662,7 +15655,7 @@ void Player::LoadPet()
     // just not added to the map
     if (IsInWorld())
     {
-        Pet *pet = new Pet;
+        Pet *pet = new Pet(this);
         if (!pet->LoadPetFromDB(this,0,0,true))
             delete pet;
     }
@@ -17106,10 +17099,31 @@ void Player::UpdateDuelFlag(time_t currTime)
     duel->opponent->duel->startTime  = currTime;
 }
 
+Pet* Player::GetPet() const
+{
+    if (uint64 pet_guid = GetPetGUID())
+    {
+        if (!IS_PET_GUID(pet_guid))
+            return NULL;
+
+        if (Pet* pet = ObjectAccessor::GetPet(*this, pet_guid))
+            return pet;
+
+        //there may be a guardian in slot
+        //sLog.outError("Player::GetPet: Pet %u not exist.",GUID_LOPART(pet_guid));
+        //const_cast<Player*>(this)->SetPetGUID(0);
+    }
+
+    return NULL;
+}
+
 void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
 {
     if (!pet)
         pet = GetPet();
+
+    if (pet)
+        sLog.outDebug("RemovePet %u, %u, %u", pet->GetEntry(), mode, returnreagent);
 
     if (returnreagent && (pet || m_temporaryUnsummonedPetNumber))
     {
@@ -17140,25 +17154,6 @@ void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
     if (!pet || pet->GetOwnerGUID() != GetGUID())
         return;
 
-    // only if current pet in slot
-    switch(pet->getPetType())
-    {
-        case MINI_PET:
-            m_miniPet = 0;
-            break;
-        case GUARDIAN_PET:
-            m_guardianPets.erase(pet->GetGUID());
-            break;
-        case POSSESSED_PET:
-            m_guardianPets.erase(pet->GetGUID());
-            pet->RemoveCharmedBy(NULL);
-            break;
-        default:
-            if (GetPetGUID() == pet->GetGUID())
-                SetPet(NULL);
-            break;
-    }
-
     pet->CombatStop();
 
     if (returnreagent)
@@ -17175,7 +17170,10 @@ void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
         }
     }
 
+    // only if current pet in slot
     pet->SavePetToDB(mode);
+
+    SetMinion(pet, false);
 
     pet->AddObjectToRemoveList();
     pet->m_removed = true;
@@ -17191,57 +17189,18 @@ void Player::RemovePet(Pet* pet, PetSaveMode mode, bool returnreagent)
     }
 }
 
-void Player::RemoveMiniPet()
-{
-    if (Pet* pet = GetMiniPet())
-    {
-        pet->Remove(PET_SAVE_AS_DELETED);
-        m_miniPet = 0;
-    }
-}
-
-Pet* Player::GetMiniPet()
-{
-    if (!m_miniPet)
-        return NULL;
-    return ObjectAccessor::GetPet(*this, m_miniPet);
-}
-
-void Player::RemoveGuardians()
-{
-    while (!m_guardianPets.empty())
-    {
-        uint64 guid = *m_guardianPets.begin();
-        if (Pet* pet = ObjectAccessor::GetPet(*this, guid))
-            pet->Remove(PET_SAVE_AS_DELETED);
-
-        m_guardianPets.erase(guid);
-    }
-}
-
-bool Player::HasGuardianWithEntry(uint32 entry)
-{
-    // pet guid middle part is entry (and creature also)
-    // and in guardian list must be guardians with same entry _always_
-    for (GuardianPetList::const_iterator itr = m_guardianPets.begin(); itr != m_guardianPets.end(); ++itr)
-        if (GUID_ENPART(*itr) == entry)
-            return true;
-
-    return false;
-}
-
-void Player::Uncharm()
+void Player::StopCastingCharm()
 {
     Unit* charm = GetCharm();
     if (!charm)
         return;
 
-    if (charm->GetTypeId() == TYPEID_UNIT && charm->ToCreature()->isPet()
-        && ((Pet*)charm)->getPetType() == POSSESSED_PET)
+    if (charm->GetTypeId() == TYPEID_UNIT)
     {
-        ((Pet*)charm)->Remove(PET_SAVE_AS_DELETED);
+        if (charm->ToCreature()->HasSummonMask(SUMMON_MASK_PUPPET))
+            ((Puppet*)charm)->UnSummon();
     }
-    else
+    if (GetCharmGUID())
     {
         charm->RemoveSpellsCausingAura(SPELL_AURA_MOD_CHARM);
         charm->RemoveSpellsCausingAura(SPELL_AURA_MOD_POSSESS_PET);
@@ -17484,10 +17443,8 @@ void Player::PetSpellInitialize()
                                                         //16
     data << (uint64)pet->GetGUID() << uint32(0x00000000) << uint8(pet->GetReactState()) << uint8(charmInfo->GetCommandState()) << uint16(0);
 
-    for (uint32 i = 0; i < 10; i++)                      //40
-    {
+    for (uint32 i = 0; i < MAX_UNIT_ACTION_BAR_INDEX; i++)
         data << uint16(charmInfo->GetActionBarEntry(i)->SpellOrAction) << uint16(charmInfo->GetActionBarEntry(i)->Type);
-    }
 
     data << uint8(addlist);                             //1
 
@@ -17532,31 +17489,23 @@ void Player::PossessSpellInitialize()
         return;
     }
 
-    uint8 addlist = 0;
-    WorldPacket data(SMSG_PET_SPELLS, 16+40+1+4*addlist+25);// first line + actionbar + spellcount + spells + last adds
+    WorldPacket data(SMSG_PET_SPELLS, 8+4+4+4*MAX_UNIT_ACTION_BAR_INDEX+1+1);
+    data << uint64(charm->GetGUID());
+    data << uint32(0);
+    data << uint32(0);
 
-                                                            //16
-    data << (uint64)charm->GetGUID() << uint32(0x00000000) << uint8(0) << uint8(0) << uint16(0);
-
-    for (uint32 i = 0; i < 10; i++)                          //40
-    {
+    for (uint32 i = 0; i < MAX_UNIT_ACTION_BAR_INDEX; i++)
         data << uint16(charmInfo->GetActionBarEntry(i)->SpellOrAction) << uint16(charmInfo->GetActionBarEntry(i)->Type);
-    }
 
-    data << uint8(addlist);                                 //1
-
-    uint8 count = 3;
-    data << count;
-    data << uint32(0x6010) << uint64(0);                    // if count = 1, 2 or 3
-    data << uint32(0x8e8c) << uint64(0);                    // if count = 3
-    data << uint32(0x8e8b) << uint64(0);                    // if count = 3
+    data << uint8(0);                                       // spells count
+    data << uint8(0);                                       // cooldowns count
 
     GetSession()->SendPacket(&data);
 }
 
 void Player::CharmSpellInitialize()
 {
-    Unit* charm = GetCharm();
+    Unit* charm = GetFirstControlled();
     if (!charm)
         return;
 
@@ -17580,27 +17529,23 @@ void Player::CharmSpellInitialize()
         }
     }
 
-    WorldPacket data(SMSG_PET_SPELLS, 16+40+1+4*addlist+25);// first line + actionbar + spellcount + spells + last adds
-
-    data << (uint64)charm->GetGUID() << uint32(0x00000000);
+    WorldPacket data(SMSG_PET_SPELLS, 8+4+1+1+2+4*MAX_UNIT_ACTION_BAR_INDEX+1+4*addlist+1);
+    data << uint64(charm->GetGUID());
+    data << uint32(0);
 
     if (charm->GetTypeId() != TYPEID_PLAYER)
-        data << uint8(charm->ToCreature()->GetReactState()) << uint8(charmInfo->GetCommandState());
+        data << uint8(charm->ToCreature()->GetReactState()) << uint8(charmInfo->GetCommandState()) << uint16(0);
     else
-        data << uint8(0) << uint8(0);
+        data << uint8(0) << uint8(0) << uint16(0);
 
-    data << uint16(0);
-
-    for (uint32 i = 0; i < 10; i++)                          //40
-    {
+    for (uint32 i = 0; i < MAX_UNIT_ACTION_BAR_INDEX; i++)
         data << uint16(charmInfo->GetActionBarEntry(i)->SpellOrAction) << uint16(charmInfo->GetActionBarEntry(i)->Type);
-    }
 
-    data << uint8(addlist);                                 //1
+    data << uint8(addlist);
 
     if (addlist)
     {
-        for (uint32 i = 0; i < CREATURE_MAX_SPELLS; ++i)
+        for (uint32 i = 0; i < MAX_SPELL_CHARM; ++i)
         {
             CharmSpellEntry *cspell = charmInfo->GetCharmSpell(i);
             if (cspell->spellId)
@@ -17611,11 +17556,7 @@ void Player::CharmSpellInitialize()
         }
     }
 
-    uint8 count = 3;
-    data << count;
-    data << uint32(0x6010) << uint64(0);                    // if count = 1, 2 or 3
-    data << uint32(0x8e8c) << uint64(0);                    // if count = 3
-    data << uint32(0x8e8b) << uint64(0);                    // if count = 3
+    data << uint8(0);                                       // cooldowns count
 
     GetSession()->SendPacket(&data);
 }
@@ -18784,8 +18725,13 @@ void Player::ReportedAfkBy(Player* reporter)
 bool Player::canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList, bool is3dDistance) const
 {
     // Always can see self
-    if (u == this)
+    if (m_mover == u || this == u)
         return true;
+
+    // Arena visibility before arena start
+    if (InArena() && GetBattleGround() && GetBattleGround()->GetStatus() == STATUS_WAIT_JOIN)
+        if (const Player* target = u->GetCharmerOrOwnerPlayerOrPlayerItself())
+            return GetBGTeam() == target->GetBGTeam() && target->isGMVisible();
 
     // player visible for other player if not logout and at same transport
     // including case when player is out of world
@@ -18851,21 +18797,24 @@ bool Player::canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList, bool
             return false;
     }
 
-    if (u->GetVisibility() == VISIBILITY_OFF)
+    if (Unit* owner = u->GetCharmerOrOwnerOrSelf())
     {
-        // GMs see any players, not higher GMs and all units
-        if (isGameMaster())
+        if (owner->GetVisibility() == VISIBILITY_OFF)
         {
-            if (u->GetTypeId() == TYPEID_PLAYER)
-                return u->ToPlayer()->GetSession()->GetSecurity() <= GetSession()->GetSecurity();
-            else
-                return true;
+            // GMs see any players, not higher GMs and all units
+            if (isGameMaster())
+            {
+                if (owner->GetTypeId() == TYPEID_PLAYER)
+                    return owner->ToPlayer()->GetSession()->GetSecurity() <= GetSession()->GetSecurity();
+                else
+                    return true;
+            }
+            return false;
         }
-        return false;
     }
 
     // GM's can see everyone with invisibilitymask with less or equal security level
-    if (m_invisibilityMask || u->m_invisibilityMask)
+    if (m_mover->m_invisibilityMask || u->m_invisibilityMask)
     {
         if (isGameMaster())
         {
@@ -18876,7 +18825,7 @@ bool Player::canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList, bool
         }
 
         // player see other player with stealth/invisibility only if he in same group or raid or same team (raid/team case dependent from conf setting)
-        if (!canDetectInvisibilityOf(u))
+        if (!m_mover->canDetectInvisibilityOf(u))
             if (!(u->GetTypeId() == TYPEID_PLAYER && !IsHostileTo(u) && IsGroupVisibleFor(const_cast<Player*>(u->ToPlayer()))))
                 return false;
     }
@@ -18891,7 +18840,7 @@ bool Player::canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList, bool
             detect = false;
         if (m_DetectInvTimer < 300 || !HaveAtClient(u))
             if (!(u->GetTypeId() == TYPEID_PLAYER && !IsHostileTo(u) && IsGroupVisibleFor(const_cast<Player*>(u->ToPlayer()))))
-                if (!detect || !canDetectStealthOf(u, GetDistance(u)))
+                if (!detect || !m_mover->canDetectStealthOf(u, GetDistance(u)))
                     return false;
     }
 
@@ -20111,6 +20060,8 @@ void Player::SetClientControl(Unit* target, uint8 allowMove)
     data << target->GetPackGUID();
     data << uint8(allowMove);
     GetSession()->SendPacket(&data);
+    if (target == this)
+        SetMover(this);
 }
 
 void Player::UpdateZoneDependentAuras(uint32 newZone)
@@ -20378,6 +20329,9 @@ void Player::HandleFallDamage(MovementInfo& movementInfo)
     // Removed for Anticheat Fall DMG
     if (!World::GetEnableMvAnticheat() && movementInfo.GetFallTime() < 1500)
         return;
+    else
+        if (movementInfo.GetFallTime() > 400 && movementInfo.GetFallTime() < 1500) // lower falltime then 400 = cheat
+            return;
 
     // calculate total z distance of the fall
     float z_diff = m_lastFallZ - movementInfo.GetPos()->GetPositionZ();

@@ -1254,13 +1254,15 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(const char *args)
     uint32 gm = 0;
     char* arg1 = strtok((char*)args, " ");
     char* arg2 = strtok(NULL, " ");
+    char* arg3 = strtok(NULL, " ");
 
-    if (getSelectedPlayer() && arg1 && !arg2)
+    if (getSelectedPlayer() && arg1 && !arg3)
     {
         targetAccountId = getSelectedPlayer()->GetSession()->GetAccountId();
         accmgr.GetName(targetAccountId, targetAccountName);
         Player* targetPlayer = getSelectedPlayer();
         gm = atoi(arg1);
+        uint32 gmRealmID = arg2 ? atoi(arg2) : realmID;
 
         // Check for invalid specified GM level.
         if ((gm < SEC_PLAYER || gm > SEC_ADMINISTRATOR))
@@ -1272,7 +1274,9 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(const char *args)
 
         // Check if targets GM level and specified GM level is not higher than current gm level
         targetSecurity = targetPlayer->GetSession()->GetSecurity();
-        if (targetSecurity >= m_session->GetSecurity() || gm >= m_session->GetSecurity())
+        if (targetSecurity >= m_session->GetSecurity() ||
+            gm >= m_session->GetSecurity()             ||
+            (gmRealmID != realmID && m_session->GetSecurity() < SEC_CONSOLE))
         {
             SendSysMessage(LANG_YOURS_SECURITY_IS_LOW);
             SetSentErrorMessage(true);
@@ -1283,13 +1287,25 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(const char *args)
         if (m_session->GetPlayer() != targetPlayer)
         {
             PSendSysMessage(LANG_YOU_CHANGE_SECURITY, targetAccountName.c_str(), gm);
-        }else{
+        }
+        else
+        {
             PSendSysMessage(LANG_YOURS_SECURITY_CHANGED, m_session->GetPlayer()->GetName(), gm);
         }
 
-        LoginDatabase.PExecute("UPDATE account SET gmlevel = '%d' WHERE id = '%u'", gm, targetAccountId);
-        return true;
-    }else
+        // If gmRealmID is -1, delete all values for the account id, else, insert values for the specific realmID
+        if (gmRealmID == -1)
+        {
+            LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u'", targetAccountId);
+            LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u', '%d', -1)", targetAccountId, gm);
+        }
+        else
+        {
+            LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u' AND RealmID = '%d'", targetAccountId, realmID);
+            LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u','%d','%d')", targetAccountId, gm, realmID);
+        }        return true;
+    }
+    else
     {
         // Check for second parameter
         if (!arg2)
@@ -1322,6 +1338,15 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(const char *args)
             return false;
         }
 
+        uint32 gmRealmID = arg3 ? atoi(arg3) : realmID;
+        // Check if provided realmID is not current realmID, or isn't -1
+        if (gmRealmID != realmID && gmRealmID != -1)
+        {
+            SendSysMessage(LANG_INVALID_REALMID);
+            SetSentErrorMessage(true);
+            return false;
+        }
+
         targetAccountId = accmgr.GetId(arg1);
         // m_session == NULL only for console
         uint32 plSecurity = m_session ? m_session->GetSecurity() : SEC_CONSOLE;
@@ -1337,8 +1362,17 @@ bool ChatHandler::HandleAccountSetGmLevelCommand(const char *args)
         }
 
         PSendSysMessage(LANG_YOU_CHANGE_SECURITY, targetAccountName.c_str(), gm);
-        LoginDatabase.PExecute("UPDATE account SET gmlevel = '%d' WHERE id = '%u'", gm, targetAccountId);
-        return true;
+        // If gmRealmID is -1, delete all values for the account id, else, insert values for the specific realmID
+        if (gmRealmID == -1)
+        {
+            LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u'", targetAccountId);
+            LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u', '%d', -1)", targetAccountId, gm);
+        }
+        else
+        {
+            LoginDatabase.PExecute("DELETE FROM account_access WHERE id = '%u' AND RealmID = '%d'", targetAccountId, realmID);
+            LoginDatabase.PExecute("INSERT INTO account_access VALUES ('%u','%d','%d')", targetAccountId, gm, realmID);
+        }        return true;
     }
 }
 
@@ -2862,11 +2896,11 @@ bool ChatHandler::HandleListObjectCommand(const char *args)
     if (m_session)
     {
         Player* pl = m_session->GetPlayer();
-        result = WorldDatabase.PQuery("SELECT guid, position_x, position_y, position_z, map, (POW(position_x - '%f', 2) + POW(position_y - '%f', 2) + POW(position_z - '%f', 2)) AS order_ FROM gameobject WHERE id = '%u' ORDER BY order_ ASC LIMIT %u",
+        result = WorldDatabase.PQuery("SELECT guid, position_x, position_y, position_z, map, id, (POW(position_x - '%f', 2) + POW(position_y - '%f', 2) + POW(position_z - '%f', 2)) AS order_ FROM gameobject WHERE id = '%u' ORDER BY order_ ASC LIMIT %u",
             pl->GetPositionX(), pl->GetPositionY(), pl->GetPositionZ(),go_id,uint32(count));
     }
     else
-        result = WorldDatabase.PQuery("SELECT guid, position_x, position_y, position_z, map FROM gameobject WHERE id = '%u' LIMIT %u",
+        result = WorldDatabase.PQuery("SELECT guid, position_x, position_y, position_z, map, id FROM gameobject WHERE id = '%u' LIMIT %u",
             go_id,uint32(count));
 
     if (result)
@@ -2879,9 +2913,10 @@ bool ChatHandler::HandleListObjectCommand(const char *args)
             float y = fields[2].GetFloat();
             float z = fields[3].GetFloat();
             int mapid = fields[4].GetUInt16();
+            uint32 entry = fields[5].GetUInt32();
 
             if (m_session)
-                PSendSysMessage(LANG_GO_LIST_CHAT, guid, guid, gInfo->name, x, y, z, mapid);
+                PSendSysMessage(LANG_GO_LIST_CHAT, guid, entry, guid, gInfo->name, x, y, z, mapid);
             else
                 PSendSysMessage(LANG_GO_LIST_CONSOLE, guid, gInfo->name, x, y, z, mapid);
         } while (result->NextRow());
@@ -5034,8 +5069,8 @@ bool ChatHandler::HandleResetLevelCommand(const char * args)
     player->SetUInt32Value(PLAYER_XP,0);
 
     // reset level to summoned pet
-    Pet* pet = player->GetPet();
-    if (pet && pet->getPetType() == SUMMON_PET)
+    Guardian* pet = player->GetGuardianPet();
+    if (pet)
         pet->InitStatsForLevel(1);
 
     return true;
@@ -6741,7 +6776,7 @@ bool ChatHandler::HandleInstanceSaveDataCommand(const char * /*args*/)
 bool ChatHandler::HandleGMListFullCommand(const char* /*args*/)
 {
     // Get the accounts with GM Level >0
-    QueryResult_AutoPtr result = LoginDatabase.Query("SELECT username,gmlevel FROM account WHERE gmlevel > 0");
+    QueryResult_AutoPtr result = LoginDatabase.Query("SELECT a.username,aa.gmlevel FROM account a, account_access aa WHERE a.id=aa.id AND aa.gmlevel > 0");
     if (result)
     {
         SendSysMessage(LANG_GMLIST);

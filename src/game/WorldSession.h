@@ -25,6 +25,7 @@
 
 #include "Common.h"
 #include "QueryResult.h"
+#include "World.h"
 
 struct ItemPrototype;
 struct AuctionEntry;
@@ -203,6 +204,26 @@ class WorldSession
         void SetLatency(uint32 latency) { m_latency = latency; }
         uint32 getDialogStatus(Player *pPlayer, Object* questgiver, uint32 defstatus);
 
+        time_t m_timeOutTime;
+        void UpdateTimeOutTime(uint32 diff)
+        {
+            if (diff > m_timeOutTime)
+                m_timeOutTime = 0;
+            else
+                m_timeOutTime -= diff;
+        }
+        void ResetTimeOutTime()
+        {
+            m_timeOutTime = sWorld.getConfig(CONFIG_SOCKET_TIMEOUTTIME);
+        }
+        bool IsConnectionIdle() const
+        {
+            if (m_timeOutTime <= 0 && !m_inQueue)
+                return true;
+            return false;
+        }
+
+
     public:                                                 // opcodes handlers
 
         void Handle_NULL(WorldPacket& recvPacket);          // not used
@@ -318,7 +339,6 @@ class WorldSession
         void HandleMoveWorldportAckOpcode();                // for server-side calls
 
         void HandleMovementOpcodes(WorldPacket& recvPacket);
-        void HandlePossessedMovement(WorldPacket& recv_data, MovementInfo& movementInfo);
         void HandleSetActiveMoverOpcode(WorldPacket &recv_data);
         void HandleMoveNotActiveMoverOpcode(WorldPacket &recv_data);
         void HandleMoveTimeSkippedOpcode(WorldPacket &recv_data);
@@ -534,6 +554,7 @@ class WorldSession
 
         //Pet
         void HandlePetAction(WorldPacket & recv_data);
+        void HandlePetActionHelper(Unit *pet, uint64 guid1, uint16 spellid, uint16 flag, uint64 guid2);
         void HandlePetNameQuery(WorldPacket & recv_data);
         void HandlePetSetAction(WorldPacket & recv_data);
         void HandlePetAbandon(WorldPacket & recv_data);

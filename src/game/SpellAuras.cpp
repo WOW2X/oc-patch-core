@@ -1892,9 +1892,9 @@ void Aura::TriggerSpell()
                     case 38443:
                     {
                         bool all = true;
-                        for (int i = 0; i < MAX_TOTEM; ++i)
+                        for (int i = SUMMON_SLOT_TOTEM; i < MAX_TOTEM_SLOT; ++i)
                         {
-                            if (!caster->m_TotemSlot[i])
+                            if (!caster->m_SummonSlot[i])
                             {
                                 all = false;
                                 break;
@@ -2385,7 +2385,7 @@ void Aura::HandleAuraDummy(bool apply, bool Real)
             {
                 if (apply)
                 {
-                    uint64 guid = caster->m_TotemSlot[3];
+                    uint64 guid = caster->m_SummonSlot[3];
                     if (guid)
                     {
                         Creature *totem = caster->GetMap()->GetCreature(guid);
@@ -3096,7 +3096,7 @@ void Aura::HandleModPossessPet(bool apply, bool Real)
 
     if (apply)
     {
-        if (caster->GetPet() != m_target)
+        if (caster->GetGuardianPet() != m_target)
             return;
 
         m_target->SetCharmedBy(caster, CHARM_TYPE_POSSESS);
@@ -3482,7 +3482,7 @@ void Aura::HandleAuraModSilence(bool apply, bool Real)
                     return;
 
                 // Search Mana Tap auras on caster
-                Aura * dummy = m_target->GetDummyAura(28734);
+                Aura * dummy = caster->GetDummyAura(28734);
                 if (dummy)
                 {
                     int32 bp = dummy->GetStackAmount() * 10;
@@ -4900,10 +4900,8 @@ void Aura::HandleModCombatSpeedPct(bool apply, bool /*Real*/)
 
 void Aura::HandleModAttackSpeed(bool apply, bool /*Real*/)
 {
-    if (!m_target->isAlive())
-        return;
-
     m_target->ApplyAttackTimePercentMod(BASE_ATTACK,GetModifierValue(),apply);
+    m_target->UpdateDamagePhysical(BASE_ATTACK);
 }
 
 void Aura::HandleHaste(bool apply, bool /*Real*/)
@@ -5077,7 +5075,7 @@ void Aura::HandleModDamageDone(bool apply, bool Real)
                     m_target->ApplyModUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_NEG+i,GetModifierValue(),apply);
             }
         }
-        Pet* pet = m_target->GetPet();
+        Pet* pet = m_target->ToPlayer()->GetPet();
         if (pet)
             pet->UpdateAttackPowerAndDamage();
     }
@@ -5575,8 +5573,8 @@ void Aura::HandleSchoolAbsorb(bool apply, bool Real)
                     if (m_spellProto->SpellFamilyFlags == 0x00)
                     {
                         //shadow ward
-                        //+10% from +spd bonus
-                        DoneActualBenefit = caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellProto)) * 0.1f;
+                        //+30% from +spd bonus
+                        DoneActualBenefit = caster->SpellBaseDamageBonus(GetSpellSchoolMask(m_spellProto)) * 0.3f;
                         break;
                     }
                     break;

@@ -214,7 +214,7 @@ INSERT INTO `command` VALUES
 ('account onlinelist',4,'Syntax: .account onlinelist\r\n\r\nShow list of online accounts.'),
 ('account password',0,'Syntax: .account password $old_password $new_password $new_password\r\n\r\nChange your account password.'),
 ('account set addon',3,'Syntax: .account set addon [$account] #addon\r\n\r\nSet user (posible targeted) expansion addon level allowed. Addon values: 0 - normal, 1 - tbc, 2 - wotlk.'),
-('account set gmlevel',4,'Syntax: .account set gmlevel [$account] #level\r\n\r\nSet the security level for targeted player (can''t be used at self) or for account $name to a level of #level.\r\n\r\n#level may range from 0 to 3.'),
+('account set gmlevel',4,'Syntax: .account set gmlevel [$account] #level [#realmid]\r\n\r\nSet the security level for targeted player (can\'t be used at self) or for account $name to a level of #level on the realm #realmID.\r\n\r\n#level may range from 0 to 3.\r\n\r\n#reamID may be -1 for all realms.'),
 ('account set password',4,'Syntax: .account set password $account $password $password\r\n\r\nSet password for account.'),
 ('additem',3,'Syntax: .additem #itemid/[#itemname]/#shift-click-item-link #itemcount\r\n\r\nAdds the specified number of items of id #itemid (or exact (!) name $itemname in brackets, or link created by shift-click at item in inventory or recipe) to your or selected character inventory. If #itemcount is omitted, only one item will be added.\r\n.'),
 ('additemset',3,'Syntax: .additemset #itemsetid\r\n\r\nAdd items from itemset of id #itemsetid to your or selected character inventory. Will add by one example each item from itemset.'),
@@ -3582,7 +3582,8 @@ INSERT INTO `oregon_string` VALUES
 (10054, 'Give me the flag, I''ll take it to the central beacon for the glory of the Alliance!', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
 (10055, 'Give me the flag, I''ll take it to the central beacon for the glory of the Horde!', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
 (10056, 'You must be a member of the Horde to enter the Hall of Legends.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(10057, 'You must be a member of the Alliance to enter the Champion''s Hall.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+(10057, 'You must be a member of the Alliance to enter the Champion''s Hall.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(11001, 'You have not chosen -1 or the current realmID that you are on.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 /*!40000 ALTER TABLE `oregon_string` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -12266,8 +12267,8 @@ INSERT INTO `spell_affect` VALUES
 (36032,0,0x20000000),
 (36032,1,0x20000000),
 (36413,0,0x1),
-(36563,1,0x204),
-(36563,2,0x100),
+(36563,1,0x1062612030F),
+(36563,2,0x1062612030F),
 (37166,0,0x800000),
 (37167,0,0x40000),
 (37171,0,0x9003E0000),

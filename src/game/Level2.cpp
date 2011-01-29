@@ -2038,7 +2038,11 @@ bool ChatHandler::HandlePInfoCommand(const char* args)
     uint32 security = 0;
     std::string last_login = GetOregonString(LANG_ERROR);
 
-    QueryResult_AutoPtr result = LoginDatabase.PQuery("SELECT username,gmlevel,last_ip,last_login FROM account WHERE id = '%u'",accId);
+    QueryResult_AutoPtr result = LoginDatabase.PQuery("SELECT a.username,aa.gmlevel,a.last_ip,a.last_login "
+                                                      "FROM account a "
+                                                      "LEFT JOIN account_access aa "
+                                                      "ON (a.id = aa.id) "
+                                                      "WHERE a.id = '%u'",accId);
     if (result)
     {
         Field* fields = result->Fetch();
@@ -3739,7 +3743,7 @@ bool ChatHandler::HandleCreatePetCommand(const char* /*args*/)
     }
 
     // Everything looks OK, create new pet
-    Pet* pet = new Pet(HUNTER_PET);
+    Pet* pet = new Pet(player, HUNTER_PET);
 
     if (!pet)
       return false;
@@ -3755,7 +3759,6 @@ bool ChatHandler::HandleCreatePetCommand(const char* /*args*/)
     creatureTarget->RemoveCorpse();
     creatureTarget->SetHealth(0); // just for nice GM-mode view
 
-    pet->SetUInt64Value(UNIT_FIELD_SUMMONEDBY, player->GetGUID());
     pet->SetUInt64Value(UNIT_FIELD_CREATEDBY, player->GetGUID());
     pet->SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, player->getFaction());
 
@@ -3780,7 +3783,7 @@ bool ChatHandler::HandleCreatePetCommand(const char* /*args*/)
      // visual effect for levelup
      pet->SetUInt32Value(UNIT_FIELD_LEVEL,creatureTarget->getLevel());
 
-     player->SetPet(pet);
+    player->SetMinion(pet, true);
      pet->SavePetToDB(PET_SAVE_AS_CURRENT);
      player->PetSpellInitialize();
 
