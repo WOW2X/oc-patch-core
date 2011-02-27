@@ -382,7 +382,7 @@ struct mob_giant_infernalAI : public hyjal_trashAI
         Delay = rand()%30000;
         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
         me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-        me->SetUInt32Value(UNIT_FIELD_DISPLAYID, MODEL_INVIS);
+        me->SetDisplayId(MODEL_INVIS);
         pGo = false;
         pos = 0;
         Reset();
@@ -448,7 +448,7 @@ struct mob_giant_infernalAI : public hyjal_trashAI
             {
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                me->SetUInt32Value(UNIT_FIELD_DISPLAYID, me->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID));
+                me->SetDisplayId(me->GetUInt32Value(UNIT_FIELD_NATIVEDISPLAYID));
                 CanMove = true;
                 if (pInstance)
                 {
@@ -1128,7 +1128,7 @@ struct mob_frost_wyrmAI : public hyjal_trashAI
         me->GetPosition(x,y,z);
         z = me->GetMap()->GetHeight(x, y, z);
         me->GetMotionMaster()->MovePoint(0,x,y,z);
-        me->Relocate(x,y,z,0);
+        me->GetMap()->CreatureRelocation(me,x,y,z,0.0f);
     }
 
     void EnterCombat(Unit* /*who*/) {}
@@ -1240,7 +1240,7 @@ struct mob_gargoyleAI : public hyjal_trashAI
         me->GetPosition(x,y,z);
         z = me->GetMap()->GetHeight(x, y, z);
         me->GetMotionMaster()->MovePoint(0,x,y,z);
-        me->Relocate(x,y,z,0);
+        me->GetMap()->CreatureRelocation(me,x,y,z,0.0f);
         hyjal_trashAI::JustDied(victim);
     }
 

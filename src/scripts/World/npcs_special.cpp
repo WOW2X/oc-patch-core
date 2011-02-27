@@ -24,12 +24,13 @@ EndScriptData
 */
 
 /* ContentData
+npc_lunaclaw_spirit      80%    support for quests 6001/6002 (Body and Heart)
 npc_chicken_cluck       100%    support for quest 3861 (Cluck!)
 npc_dancing_flames      100%    midsummer event NPC
 npc_guardian            100%    guardianAI used to prevent players from accessing off-limits areas. Not in use by SD2
+npc_garments_of_quests   80%    NPC's related to all Garments of-quests 5621, 5624, 5625, 5648, 5650
 npc_injured_patient     100%    patients for triage-quests (6622 and 6624)
 npc_doctor              100%    Gustaf Vanhowzen and Gregory Victor, quest 6622 and 6624 (Triage)
-npc_garments_of_quests   80%    NPC's related to all Garments of-quests 5621, 5624, 5625, 5648, 5650
 npc_mount_vendor        100%    Regular mount vendors all over the world. Display gossip if player doesn't meet the requirements to buy
 npc_rogue_trainer        80%    Scripted trainers, so they are able to offer item 17126 for class quest 6681
 npc_sayge               100%    Darkmoon event fortune teller, buff player based on answers given
@@ -38,6 +39,40 @@ EndContentData */
 
 #include "ScriptPCH.h"
 #include "ScriptedEscortAI.h"
+
+/*######
+## npc_lunaclaw_spirit
+######*/
+
+enum eLunaclaw
+{
+    QUEST_BODY_HEART_A      = 6001,
+    QUEST_BODY_HEART_H      = 6002,
+
+    TEXT_ID_DEFAULT         = 4714,
+    TEXT_ID_PROGRESS        = 4715
+};
+
+#define GOSSIP_ITEM_GRANT   "You have thought well, spirit. I ask you to grant me the strength of your body and the strength of your heart."
+
+bool GossipHello_npc_lunaclaw_spirit(Player *pPlayer, Creature *pCreature)
+{
+    if (pPlayer->GetQuestStatus(QUEST_BODY_HEART_A) == QUEST_STATUS_INCOMPLETE || pPlayer->GetQuestStatus(QUEST_BODY_HEART_H) == QUEST_STATUS_INCOMPLETE)
+        pPlayer->ADD_GOSSIP_ITEM(GOSSIP_ICON_CHAT, GOSSIP_ITEM_GRANT, GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF+1);
+
+    pPlayer->SEND_GOSSIP_MENU(TEXT_ID_DEFAULT, pCreature->GetGUID());
+    return true;
+}
+
+bool GossipSelect_npc_lunaclaw_spirit(Player* pPlayer, Creature* pCreature, uint32 /*uiSender*/, uint32 uiAction)
+{
+    if (uiAction == GOSSIP_ACTION_INFO_DEF+1)
+    {
+        pPlayer->SEND_GOSSIP_MENU(TEXT_ID_PROGRESS, pCreature->GetGUID());
+        pPlayer->AreaExploredOrEventHappens(pPlayer->GetTeam() == ALLIANCE ? QUEST_BODY_HEART_A : QUEST_BODY_HEART_H);
+    }
+    return true;
+}
 
 /*########
 # npc_chicken_cluck
@@ -158,7 +193,7 @@ struct npc_dancing_flamesAI : public ScriptedAI
         DoCast(me, SPELL_FIERY_AURA, false);
         float x, y, z;
         me->GetPosition(x,y,z);
-        me->Relocate(x,y,z + 0.94f);
+        me->GetMap()->CreatureRelocation(me,x,y,z + 0.94f,0.0f);
         me->AddUnitMovementFlag(MOVEFLAG_ONTRANSPORT | MOVEFLAG_LEVITATING);
         me->HandleEmoteCommand(EMOTE_ONESHOT_DANCE);
         WorldPacket data;                       //send update position to client
@@ -216,18 +251,17 @@ CreatureAI* GetAI_npc_dancing_flames(Creature* pCreature)
 ## Triage quest
 ######*/
 
-enum
+enum eDoctor
 {
     SAY_DOC1         = -1000201,
     SAY_DOC2         = -1000202,
     SAY_DOC3         = -1000203,
 
+    DOCTOR_ALLIANCE  = 12939,
+    DOCTOR_HORDE     = 12920,
+    ALLIANCE_COORDS  = 7,
+    HORDE_COORDS     = 6
 };
-
-#define DOCTOR_ALLIANCE     12939
-#define DOCTOR_HORDE        12920
-#define ALLIANCE_COORDS     7
-#define HORDE_COORDS        6
 
 struct Location
 {
@@ -388,12 +422,7 @@ struct npc_injured_patientAI : public ScriptedAI
             //stand up
             me->SetUInt32Value(UNIT_FIELD_BYTES_1, UNIT_STAND_STATE_STAND);
 
-            switch(rand()%3)
-            {
-                case 0: DoScriptText(SAY_DOC1,me); break;
-                case 1: DoScriptText(SAY_DOC2,me); break;
-                case 2: DoScriptText(SAY_DOC3,me); break;
-            }
+            DoScriptText(RAND(SAY_DOC1,SAY_DOC2,SAY_DOC3), me);
 
             uint32 mobId = me->GetEntry();
             me->RemoveUnitMovementFlag(MOVEFLAG_WALK_MODE);
@@ -1373,9 +1402,94 @@ CreatureAI* GetAI_npc_snake_trap_serpents(Creature* pCreature)
     return new npc_snake_trap_serpentsAI(pCreature);
 }
 
+#define SAY_RANDOM_MOJO0    "Now that's what I call froggy-style!"
+#define SAY_RANDOM_MOJO1    "Your lily pad or mine?"
+#define SAY_RANDOM_MOJO2    "This won't take long, did it?"
+#define SAY_RANDOM_MOJO3    "I thought you'd never ask!"
+#define SAY_RANDOM_MOJO4    "I promise not to give you warts..."
+#define SAY_RANDOM_MOJO5    "Feelin' a little froggy, are ya?"
+#define SAY_RANDOM_MOJO6a   "Listen, "
+#define SAY_RANDOM_MOJO6b   ", I know of a little swamp not too far from here...."
+#define SAY_RANDOM_MOJO7    "There's just never enough Mojo to go around..."
+
+struct mob_mojoAI : public ScriptedAI
+{
+    mob_mojoAI(Creature *c) : ScriptedAI(c) {Reset();}
+    uint32 hearts;
+    uint64 victimGUID;
+    void Reset()
+    {
+        victimGUID = 0;
+        hearts = 15000;
+        if (Unit* own = me->GetOwner())
+            me->GetMotionMaster()->MoveFollow(own,0,0);
+    }
+    void Aggro(Unit * /*who*/){}
+    void UpdateAI(const uint32 diff)
+    {
+        if (me->HasAura(20372, 0))
+        {
+            if (hearts <= diff)
+            {
+                me->RemoveAurasDueToSpell(20372);
+                hearts = 15000;
+            } hearts -= diff;
+        }
+    }
+    void ReceiveEmote(Player* pPlayer, uint32 emote)
+    {
+        me->HandleEmoteCommand(emote);
+        Unit* own = me->GetOwner();
+        if (!own || own->GetTypeId() != TYPEID_PLAYER || CAST_PLR(own)->GetTeam() != pPlayer->GetTeam())
+            return;
+        if (emote == TEXTEMOTE_KISS)
+        {
+            std::string whisp = "";
+            switch (rand()%8)
+            {
+                case 0:whisp.append(SAY_RANDOM_MOJO0);break;
+                case 1:whisp.append(SAY_RANDOM_MOJO1);break;
+                case 2:whisp.append(SAY_RANDOM_MOJO2);break;
+                case 3:whisp.append(SAY_RANDOM_MOJO3);break;
+                case 4:whisp.append(SAY_RANDOM_MOJO4);break;
+                case 5:whisp.append(SAY_RANDOM_MOJO5);break;
+                case 6:
+                    whisp.append(SAY_RANDOM_MOJO6a);
+                    whisp.append(pPlayer->GetName());
+                    whisp.append(SAY_RANDOM_MOJO6b);
+                    break;
+                case 7:whisp.append(SAY_RANDOM_MOJO7);break;
+            }
+            me->MonsterWhisper(whisp.c_str(),pPlayer->GetGUID());
+            if (victimGUID)
+            {
+                Player* victim = Unit::GetPlayer(*me, victimGUID);
+                if (victim && victim->HasAura(43906, 0))
+                    victim->RemoveAurasDueToSpell(43906); // remove polymorph frog thing
+            }
+            me->AddAura(43906,pPlayer);//add polymorph frog thing
+            victimGUID = pPlayer->GetGUID();
+            DoCast(me, 20372, true);//tag.hearts
+            me->GetMotionMaster()->MoveFollow(pPlayer,0,0);
+            hearts = 15000;
+        }
+    }
+};
+
+CreatureAI* GetAI_mob_mojo(Creature* pCreature)
+{
+    return new mob_mojoAI (pCreature);
+}
+
 void AddSC_npcs_special()
 {
     Script *newscript;
+
+    newscript = new Script;
+    newscript->Name = "npc_lunaclaw_spirit";
+    newscript->pGossipHello =  &GossipHello_npc_lunaclaw_spirit;
+    newscript->pGossipSelect = &GossipSelect_npc_lunaclaw_spirit;
+    newscript->RegisterSelf();
 
     newscript = new Script;
     newscript->Name = "npc_chicken_cluck";
@@ -1451,6 +1565,11 @@ void AddSC_npcs_special()
     newscript = new Script;
     newscript->Name = "npc_snake_trap_serpents";
     newscript->GetAI = &GetAI_npc_snake_trap_serpents;
+    newscript->RegisterSelf();
+
+    newscript = new Script;
+    newscript->Name = "mob_mojo";
+    newscript->GetAI = &GetAI_mob_mojo;
     newscript->RegisterSelf();
 }
 

@@ -43,6 +43,7 @@ struct instance_sunwell_plateau : public ScriptedInstance
     uint64 KilJaedenController;
     uint64 Anveena;
     uint64 KalecgosKJ;
+    uint32 SpectralPlayers;
 
     /** GameObjects **/
     uint64 ForceField;                                      // Kalecgos Encounter
@@ -72,6 +73,7 @@ struct instance_sunwell_plateau : public ScriptedInstance
         KilJaedenController     = 0;
         Anveena                 = 0;
         KalecgosKJ              = 0;
+        SpectralPlayers         = 0;
 
         /*** GameObjects ***/
         ForceField  = 0;
@@ -112,9 +114,9 @@ struct instance_sunwell_plateau : public ScriptedInstance
         return NULL;
     }
 
-    void OnCreatureCreate(Creature* pCreature, uint32 entry)
+    void OnCreatureCreate(Creature* pCreature, bool /*add*/)
     {
-        switch(entry)
+        switch(pCreature->GetEntry())
         {
             case 24850: Kalecgos_Dragon     = pCreature->GetGUID(); break;
             case 24891: Kalecgos_Human      = pCreature->GetGUID(); break;
@@ -132,7 +134,7 @@ struct instance_sunwell_plateau : public ScriptedInstance
         }
     }
 
-    void OnObjectCreate(GameObject* pGo)
+    void OnGameObjectCreate(GameObject* pGo, bool /*add*/)
     {
         switch(pGo->GetEntry())
         {
@@ -174,6 +176,7 @@ struct instance_sunwell_plateau : public ScriptedInstance
             case DATA_KALECGOS_DRAGON:      return Kalecgos_Dragon;
             case DATA_KALECGOS_HUMAN:       return Kalecgos_Human;
             case DATA_SATHROVARR:           return Sathrovarr;
+            case DATA_GO_FORCEFIELD:        return ForceField;
             case DATA_BRUTALLUS:            return Brutallus;
             case DATA_MADRIGOSA:            return Madrigosa;
             case DATA_FELMYST:              return Felmyst;

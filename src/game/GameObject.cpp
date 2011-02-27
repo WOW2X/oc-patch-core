@@ -165,12 +165,11 @@ bool GameObject::Create(uint32 guidlow, uint32 name_id, Map *map, float x, float
     SetFloatValue(GAMEOBJECT_POS_X, x);
     SetFloatValue(GAMEOBJECT_POS_Y, y);
     SetFloatValue(GAMEOBJECT_POS_Z, z);
-    SetFloatValue(GAMEOBJECT_FACING, ang);                  //this is not facing angle
 
-    SetFloatValue (GAMEOBJECT_ROTATION, rotation0);
-    SetFloatValue (GAMEOBJECT_ROTATION+1, rotation1);
-    SetFloatValue (GAMEOBJECT_ROTATION+2, rotation2);
-    SetFloatValue (GAMEOBJECT_ROTATION+3, rotation3);
+    SetFloatValue(GAMEOBJECT_ROTATION+0, rotation0);
+    SetFloatValue(GAMEOBJECT_ROTATION+1, rotation1);
+
+    UpdateRotationFields(rotation2,rotation3);              // GAMEOBJECT_FACING, GAMEOBJECT_ROTATION, GAMEOBJECT_PARENTROTATION+2/3
 
     SetFloatValue(OBJECT_FIELD_SCALE_X, goinfo->size);
 
@@ -950,7 +949,7 @@ void GameObject::Use(Unit* user)
             UseDoorOrButton();
 
             // activate script
-            sWorld.ScriptsStart(sGameObjectScripts, GetDBTableGUIDLow(), spellCaster, this);
+            GetMap()->ScriptsStart(sGameObjectScripts, GetDBTableGUIDLow(), spellCaster, this);
             return;
 
         case GAMEOBJECT_TYPE_QUESTGIVER:                    //2
@@ -1074,6 +1073,9 @@ void GameObject::Use(Unit* user)
                     player->SendPreparedGossip(this);
                 }
 
+                if (info->goober.eventId)
+                    GetMap()->ScriptsStart(sEventScripts, info->goober.eventId, player, this);
+
                 // possible quest objective for active quests
                 player->CastedCreatureOrGO(info->id, GetGUID(), 0);
             }
@@ -1095,11 +1097,11 @@ void GameObject::Use(Unit* user)
             Player* player = user->ToPlayer();
 
             if (info->camera.cinematicId)
-            {
-                WorldPacket data(SMSG_TRIGGER_CINEMATIC, 4);
-                data << info->camera.cinematicId;
-                player->GetSession()->SendPacket(&data);
-            }
+                player->SendCinematicStart(info->camera.cinematicId);
+
+            if (info->camera.eventID)
+                GetMap()->ScriptsStart(sEventScripts, info->camera.eventID, player, this);
+
             return;
         }
         //fishing bobber
@@ -1438,3 +1440,16 @@ const char* GameObject::GetNameForLocaleIdx(int32 loc_idx) const
     return GetName();
 }
 
+void GameObject::UpdateRotationFields(float rotation2 /*=0.0f*/, float rotation3 /*=0.0f*/)
+{
+    SetFloatValue(GAMEOBJECT_FACING, GetOrientation());
+
+    if (rotation2 == 0.0f && rotation3 == 0.0f)
+    {
+        rotation2 = sin(GetOrientation()/2);
+        rotation3 = cos(GetOrientation()/2);
+    }
+
+    SetFloatValue(GAMEOBJECT_ROTATION+2, rotation2);
+    SetFloatValue(GAMEOBJECT_ROTATION+3, rotation3);
+}

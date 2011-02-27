@@ -80,8 +80,8 @@ struct PetSpell
 {
     uint16 active;
 
-    PetSpellState state : 16;
-    PetSpellType type   : 16;
+    PetSpellState state : 8;
+    PetSpellType type   : 8;
 };
 
 enum ActionFeedback
@@ -115,7 +115,7 @@ enum PetNameInvalidReason
     PET_NAME_DECLENSION_DOESNT_MATCH_BASE_NAME              = 16
 };
 
-typedef UNORDERED_MAP<uint16, PetSpell*> PetSpellMap;
+typedef UNORDERED_MAP<uint16, PetSpell> PetSpellMap;
 typedef std::map<uint32,uint32> TeachSpellMap;
 typedef std::vector<uint32> AutoSpellList;
 
@@ -126,7 +126,7 @@ extern const uint32 LevelStartLoyalty[6];
 
 #define ACTIVE_SPELLS_MAX           4
 
-#define OWNER_MAX_DISTANCE 100
+class Player;
 
 class Pet : public Guardian
 {
@@ -142,9 +142,11 @@ class Pet : public Guardian
         bool isControlled() const { return getPetType() == SUMMON_PET || getPetType() == HUNTER_PET; }
         bool isTemporarySummoned() const { return m_duration > 0; }
 
+        bool IsPermanentPetFor(Player* owner);              // pet have tab in character windows and set UNIT_FIELD_PETNUMBER
+
         bool Create (uint32 guidlow, Map *map, uint32 Entry, uint32 pet_number);
         bool CreateBaseAtCreature(Creature* creature);
-        bool LoadPetFromDB(Unit* owner,uint32 petentry = 0,uint32 petnumber = 0, bool current = false);
+        bool LoadPetFromDB(Player* owner,uint32 petentry = 0,uint32 petnumber = 0, bool current = false);
         void SavePetToDB(PetSaveMode mode);
         void Remove(PetSaveMode mode, bool returnreagent = false);
         static void DeleteFromDB(uint32 guidlow);
@@ -209,7 +211,6 @@ class Pet : public Guardian
         bool addSpell(uint16 spell_id,uint16 active = ACT_DECIDE, PetSpellState state = PETSPELL_NEW, PetSpellType type = PETSPELL_NORMAL);
         bool learnSpell(uint16 spell_id);
         void removeSpell(uint16 spell_id);
-        bool _removeSpell(uint16 spell_id);
 
         PetSpellMap     m_spells;
         TeachSpellMap   m_teachspells;

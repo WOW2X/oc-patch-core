@@ -5026,7 +5026,7 @@ static bool HandleResetStatsOrLevelHelper(Player* player)
     player->SetUInt32Value(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
 
     //-1 is default value
-    player->SetUInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, uint32(-1));
+    player->SetInt32Value(PLAYER_FIELD_WATCHED_FACTION_INDEX, -1);
 
     //player->SetUInt32Value(PLAYER_FIELD_BYTES, 0xEEE00000);
     return true;
@@ -5555,8 +5555,9 @@ bool ChatHandler::HandleCompleteQuest(const char *args)
         }
         else if (creature > 0)
         {
-            for (uint16 z = 0; z < creaturecount; ++z)
-                player->KilledMonster(creature,0);
+            if (CreatureInfo const* cInfo = objmgr.GetCreatureTemplate(creature))
+                for (uint16 z = 0; z < creaturecount; ++z)
+                    player->KilledMonster(cInfo,0);
         }
         else if (creature < 0)
         {

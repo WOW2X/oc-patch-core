@@ -154,7 +154,7 @@ struct instance_serpentshrine_cavern : public ScriptedInstance
             {
                 if (Player* pPlayer = i->getSource())
                 {
-                    if (pPlayer->isAlive() && /*i->getSource()->GetPositionZ() <= -21.43493f1f*/pPlayer->IsInWater())
+                    if (pPlayer->isAlive() && /*i->getSource()->GetPositionZ() <= -21.434931f*/pPlayer->IsInWater())
                     {
                         if (Water == WATERSTATE_SCALDING)
                         {
@@ -191,7 +191,7 @@ struct instance_serpentshrine_cavern : public ScriptedInstance
         } else FrenzySpawnTimer -= diff;
     }
 
-    void OnObjectCreate(GameObject *pGo)
+    void OnGameObjectCreate(GameObject* pGo, bool /*add*/)
     {
         switch(pGo->GetEntry())
         {
@@ -224,9 +224,9 @@ struct instance_serpentshrine_cavern : public ScriptedInstance
         }
     }
 
-    void OnCreatureCreate(Creature *pCreature, uint32 creature_entry)
+    void OnCreatureCreate(Creature* pCreature, bool /*add*/)
     {
-        switch(creature_entry)
+        switch(pCreature->GetEntry())
         {
             case 21212: LadyVashj = pCreature->GetGUID();            break;
             case 21214: Karathress = pCreature->GetGUID();           break;

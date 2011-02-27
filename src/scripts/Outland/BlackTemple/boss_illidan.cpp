@@ -492,7 +492,7 @@ struct boss_illidan_stormrageAI : public ScriptedAI
                 me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_DISPLAY, 45479);
             else
                 me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_DISPLAY+1, 45481);
-            me->SetByteValue(UNIT_FIELD_BYTES_2, 0, SHEATH_STATE_MELEE);
+            me->SetSheath(SHEATH_STATE_MELEE);
         }
     }
 
@@ -560,7 +560,7 @@ struct boss_illidan_stormrageAI : public ScriptedAI
                 {
                     GlaiveGUID[i] = Glaive->GetGUID();
                     Glaive->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                    Glaive->SetUInt32Value(UNIT_FIELD_DISPLAYID, 11686);
+                    Glaive->SetDisplayId(11686);
                     Glaive->setFaction(me->getFaction());
                     DoCast(Glaive, SPELL_THROW_GLAIVE2);
                 }
@@ -577,7 +577,7 @@ struct boss_illidan_stormrageAI : public ScriptedAI
                 {
                     GlaiveGUID[i] = Glaive->GetGUID();
                     Glaive->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
-                    Glaive->SetUInt32Value(UNIT_FIELD_DISPLAYID, 11686);
+                    Glaive->SetDisplayId(11686);
                     Glaive->setFaction(me->getFaction());
                     DoCast(Glaive, SPELL_THROW_GLAIVE, true);
                 }
@@ -605,7 +605,7 @@ struct boss_illidan_stormrageAI : public ScriptedAI
                     if (Glaive)
                     {
                         Glaive->CastSpell(me, SPELL_GLAIVE_RETURNS, false); // Make it look like the Glaive flies back up to us
-                        Glaive->SetUInt32Value(UNIT_FIELD_DISPLAYID, 11686); // disappear but not die for now
+                        Glaive->SetDisplayId(11686); // disappear but not die for now
                     }
                 }
             }
@@ -632,7 +632,7 @@ struct boss_illidan_stormrageAI : public ScriptedAI
         case 10://attack
             DoResetThreat();
             me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE + UNIT_FLAG_NOT_SELECTABLE);
-            me->SetByteValue(UNIT_FIELD_BYTES_2, 0, SHEATH_STATE_MELEE);
+            me->SetSheath(SHEATH_STATE_MELEE);
             EnterPhase(PHASE_NORMAL_2);
             break;
         default:
@@ -650,14 +650,14 @@ struct boss_illidan_stormrageAI : public ScriptedAI
             DoCast(me, DemonTransformation[TransformCount].aura, true);
 
         if (DemonTransformation[TransformCount].displayid)
-            me->SetUInt32Value(UNIT_FIELD_DISPLAYID, DemonTransformation[TransformCount].displayid); // It's morphin time!
+            me->SetDisplayId(DemonTransformation[TransformCount].displayid); // It's morphin time!
 
         if (DemonTransformation[TransformCount].equip)
         {
             // Requip warglaives if needed
             me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_DISPLAY, 45479);
             me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_DISPLAY+1, 45481);
-            me->SetByteValue(UNIT_FIELD_BYTES_2, 0, SHEATH_STATE_MELEE);
+            me->SetSheath(SHEATH_STATE_MELEE);
         }
         else
         {
@@ -1119,7 +1119,7 @@ struct npc_akama_illidanAI : public ScriptedAI
         if (Creature* Channel = me->SummonCreature(ILLIDAN_DOOR_TRIGGER, x, y, z+5, 0, TEMPSUMMON_TIMED_OR_CORPSE_DESPAWN, 360000))
         {
             ChannelGUID = Channel->GetGUID();
-            Channel->SetUInt32Value(UNIT_FIELD_DISPLAYID, 11686); // Invisible but spell visuals can still be seen.
+            Channel->SetDisplayId(11686); // Invisible but spell visuals can still be seen.
             DoCast(Channel, SPELL_AKAMA_DOOR_FAIL);
         }
 
@@ -1813,7 +1813,7 @@ struct blade_of_azzinothAI : public NullCreatureAI
     void SpellHit(Unit * /*caster*/, const SpellEntry *spell)
     {
         if (spell->Id == SPELL_THROW_GLAIVE2 || spell->Id == SPELL_THROW_GLAIVE)
-            me->SetUInt32Value(UNIT_FIELD_DISPLAYID, 21431);//appear when hit by Illidan's glaive
+            me->SetDisplayId(21431);//appear when hit by Illidan's glaive
     }
 };
 
@@ -1856,7 +1856,7 @@ void boss_illidan_stormrageAI::Reset()
     FlightCount = 0;
     TransformCount = 0;
 
-    me->SetUInt32Value(UNIT_FIELD_DISPLAYID, 21135);
+    me->SetDisplayId(21135);
     me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_OOC_NOT_ATTACKABLE);
     me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
     me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
@@ -1924,7 +1924,7 @@ void boss_illidan_stormrageAI::HandleTalkSequence()
     case 8:
         me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_DISPLAY, 45479); // Equip our warglaives!
         me->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_DISPLAY+1, 45481);
-        me->SetByteValue(UNIT_FIELD_BYTES_2, 0, SHEATH_STATE_MELEE);
+        me->SetSheath(SHEATH_STATE_MELEE);
         me->RemoveUnitMovementFlag(MOVEFLAG_WALK_MODE);
         break;
     case 9:
@@ -1974,7 +1974,7 @@ void boss_illidan_stormrageAI::HandleTalkSequence()
                 x += 10; y += 10;
                 Akama->GetMotionMaster()->Clear(false);
                 //Akama->GetMotionMaster()->MoveIdle();
-                Akama->Relocate(x, y, z);
+                Akama->GetMap()->CreatureRelocation(me, x, y, z, 0.0f);
                 Akama->SendMonsterMove(x, y, z, 0);//Illidan must not die until Akama arrives.
                 Akama->GetMotionMaster()->MoveChase(me);
             }

@@ -140,6 +140,8 @@ class ChatHandler
         bool HandleSendMoneyCommand(const char* args);
         bool HandleIRCpmCommand(const char* args);
 
+        bool HandleDebugPlayCinematicCommand(const char* args);
+        bool HandleDebugPlaySoundCommand(const char* args);
         bool HandleEventActiveListCommand(const char* args);
         bool HandleEventStartCommand(const char* args);
         bool HandleEventStopCommand(const char* args);
@@ -395,7 +397,6 @@ class ChatHandler
         bool HandleGetDistanceCommand(const char* args);
         bool HandleGameObjectCommand(const char* args);
         bool HandleAnimCommand(const char* args);
-        bool HandlePlaySoundCommand(const char* args);
         bool HandleStandStateCommand(const char* args);
         bool HandleDieCommand(const char* args);
         bool HandleDamageCommand(const char *args);
@@ -485,7 +486,6 @@ class ChatHandler
         bool HandleSellErrorCommand(const char* args);
         bool HandleBuyErrorCommand(const char* args);
         bool HandleUpdateWorldStateCommand(const char* args);
-        bool HandlePlaySound2Command(const char* args);
         bool HandleSendChannelNotifyCommand(const char* args);
         bool HandleSendChatMsgCommand(const char* args);
         bool HandleLoadPDumpCommand(const char *args);

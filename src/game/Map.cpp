@@ -20,28 +20,19 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#include "MapManager.h"
-#include "Player.h"
-#include "GridNotifiers.h"
-#include "WorldSession.h"
-#include "Log.h"
-#include "GridStates.h"
-#include "CellImpl.h"
-#include "InstanceData.h"
 #include "Map.h"
-#include "GridNotifiersImpl.h"
-#include "Config/Config.h"
-#include "Transports.h"
-#include "ObjectAccessor.h"
-#include "ObjectMgr.h"
-#include "World.h"
-#include "Group.h"
-#include "MapRefManager.h"
-
-#include "MapInstanced.h"
-#include "InstanceSaveMgr.h"
-#include "VMapFactory.h"
+#include "GridStates.h"
 #include "ScriptMgr.h"
+#include "VMapFactory.h"
+#include "MapInstanced.h"
+#include "CellImpl.h"
+#include "GridNotifiers.h"
+#include "GridNotifiersImpl.h"
+#include "Transports.h"
+#include "InstanceData.h"
+#include "ObjectAccessor.h"
+#include "MapManager.h"
+#include "ObjectMgr.h"
 
 #define DEFAULT_GRID_EXPIRY     300
 #define MAX_GRID_LOAD_TIME      50
@@ -61,6 +52,9 @@ Map::~Map()
         obj->RemoveFromWorld();
         obj->ResetMap();
     }
+
+    if (!m_scriptSchedule.empty())
+        sWorld.DecreaseScheduledScriptCount(m_scriptSchedule.size());
 }
 
 bool Map::ExistMap(uint32 mapid,int gx,int gy)
@@ -196,7 +190,8 @@ Map::Map(uint32 id, time_t expiry, uint32 InstanceId, uint8 SpawnMode, Map* _par
 i_mapEntry (sMapStore.LookupEntry(id)), i_spawnMode(SpawnMode), i_InstanceId(InstanceId),
 m_unloadTimer(0), m_VisibleDistance(DEFAULT_VISIBILITY_DISTANCE),
 m_VisibilityNotifyPeriod(DEFAULT_VISIBILITY_NOTIFY_PERIOD),
-m_activeNonPlayersIter(m_activeNonPlayers.end()), i_gridExpiry(expiry)
+m_activeNonPlayersIter(m_activeNonPlayers.end()), i_gridExpiry(expiry),
+i_scriptLock(false)
 {
     m_parentMap = (_parent ? _parent : this);
 
@@ -655,6 +650,14 @@ void Map::Update(const uint32 &t_diff)
                 }
             }
         }
+    }
+
+    // Process necessary scripts
+    if (!m_scriptSchedule.empty())
+    {
+        i_scriptLock = true;
+        ScriptsProcess();
+        i_scriptLock = false;
     }
 
     MoveAllCreaturesInMoveList();
@@ -1716,8 +1719,12 @@ float Map::GetHeight(float x, float y, float z, bool pUseVmaps, float maxSearchD
     }
 }
 
-inline bool IsOutdoorWMO(uint32 mogpFlags, int32 /*adtId*/, int32 /*rootId*/, int32 /*groupId*/, WMOAreaTableEntry const* wmoEntry, AreaTableEntry const* atEntry)
+inline bool IsOutdoorWMO(uint32 mogpFlags, int32 /*adtId*/, int32 /*rootId*/, int32 /*groupId*/, WMOAreaTableEntry const* /*wmoEntry*/, AreaTableEntry const* /*atEntry*/)
 {
+    /* pre-3.x areas:
+      a) not have AREA_FLAG_OUTSIDE and AREA_FLAG_INSIDE
+      b) wmoEntry->Flags always == 0
+
     bool outdoor = true;
 
     if (wmoEntry && atEntry)
@@ -1738,6 +1745,9 @@ inline bool IsOutdoorWMO(uint32 mogpFlags, int32 /*adtId*/, int32 /*rootId*/, in
             outdoor = false;
     }
     return outdoor;
+    */
+
+    return mogpFlags & 0x8000;
 }
 
 bool Map::IsOutdoors(float x, float y, float z) const
@@ -1750,12 +1760,13 @@ bool Map::IsOutdoors(float x, float y, float z) const
         return true;
 
     AreaTableEntry const* atEntry = 0;
-    WMOAreaTableEntry const* wmoEntry= GetWMOAreaTableEntryByTripple(rootId, adtId, groupId);
+    WMOAreaTableEntry const* wmoEntry = 0;
+    /*WMOAreaTableEntry const* wmoEntry = GetWMOAreaTableEntryByTripple(rootId, adtId, groupId);
     if (wmoEntry)
     {
         DEBUG_LOG("Got WMOAreaTableEntry! flag %u, areaid %u", wmoEntry->Flags, wmoEntry->areaId);
         atEntry = GetAreaEntryByAreaID(wmoEntry->areaId);
-    }
+    }*/
     return IsOutdoorWMO(mogpFlags, adtId, rootId, groupId, wmoEntry, atEntry);
 }
 

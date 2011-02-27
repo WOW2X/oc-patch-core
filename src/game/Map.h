@@ -45,12 +45,23 @@ class WorldPacket;
 class InstanceData;
 class Group;
 class InstanceSave;
+class Object;
 class WorldObject;
 class TempSummon;
 class Player;
 class CreatureGroup;
+struct ScriptInfo;
+struct ScriptAction;
 struct Position;
 class BattleGround;
+
+struct ScriptAction
+{
+    uint64 sourceGUID;
+    uint64 targetGUID;
+    uint64 ownerGUID;                                       // owner of source if source is item
+    ScriptInfo const* script;                               // pointer to static script data
+};
 
 //******************************************
 // Map file format defines
@@ -390,6 +401,10 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         typedef MapRefManager PlayerList;
         PlayerList const& GetPlayers() const { return m_mapRefManager; }
 
+        //per-map script storage
+        void ScriptsStart(std::map<uint32, std::multimap<uint32, ScriptInfo> > const& scripts, uint32 id, Object* source, Object* target);
+        void ScriptCommandStart(ScriptInfo const& script, uint32 delay, Object* source, Object* target);
+
         // must called with AddToWorld
         template<class T>
         void AddToActive(T* obj) { AddToActiveHelper(obj); }
@@ -462,6 +477,7 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         void setGridObjectDataLoaded(bool pLoaded, uint32 x, uint32 y) { getNGrid(x,y)->setGridObjectDataLoaded(pLoaded); }
 
         void setNGrid(NGridType* grid, uint32 x, uint32 y);
+        void ScriptsProcess();
 
         void UpdateActiveCells(const float &x, const float &y, const uint32 &t_diff);
     protected:
@@ -485,6 +501,14 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         ActiveNonPlayers::iterator m_activeNonPlayersIter;
 
     private:
+        Player* _GetScriptPlayerSourceOrTarget(Object* source, Object* target, const ScriptInfo* scriptInfo) const;
+        Creature* _GetScriptCreatureSourceOrTarget(Object* source, Object* target, const ScriptInfo* scriptInfo, bool bReverse = false) const;
+        Unit* _GetScriptUnit(Object* obj, bool isSource, const ScriptInfo* scriptInfo) const;
+        Player* _GetScriptPlayer(Object* obj, bool isSource, const ScriptInfo* scriptInfo) const;
+        Creature* _GetScriptCreature(Object* obj, bool isSource, const ScriptInfo* scriptInfo) const;
+        WorldObject* _GetScriptWorldObject(Object* obj, bool isSource, const ScriptInfo* scriptInfo) const;
+        void _ScriptProcessDoor(Object* source, Object* target, const ScriptInfo* scriptInfo) const;
+        GameObject* _FindGameObject(WorldObject* pWorldObject, uint32 guid) const;
 
         time_t i_gridExpiry;
 
@@ -500,9 +524,11 @@ class Map : public GridRefManager<NGridType>, public Oregon::ObjectLevelLockable
         //visibility calculations. Highly optimized for massive calculations
         void ProcessRelocationNotifies(const uint32 &diff);
 
+        bool i_scriptLock;
         std::set<WorldObject *> i_objectsToRemove;
         std::map<WorldObject*, bool> i_objectsToSwitch;
         std::set<WorldObject*> i_worldObjects;
+        std::multimap<time_t, ScriptAction> m_scriptSchedule;
 
         // Type specific code for add/remove to/from grid
         template<class T>

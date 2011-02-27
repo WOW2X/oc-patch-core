@@ -27,6 +27,7 @@
 #include "World.h"
 #include "ObjectMgr.h"
 #include "Player.h"
+#include "AccountMgr.h"
 #include "Opcodes.h"
 #include "Chat.h"
 #include "Log.h"
@@ -391,7 +392,7 @@ bool ChatHandler::HandleGMTicketGetByIdCommand(const char* args)
     Player *plr = objmgr.GetPlayer(ticket->playerGuid);
     if (plr && plr->IsInWorld())
     {
-        // tell server to update display of ticket status
+        // tell client to update display of ticket status
         WorldPacket data(SMSG_GM_TICKET_STATUS_UPDATE, 4);
         data << uint32(1);
         plr->GetSession()->SendPacket(&data);
@@ -433,7 +434,7 @@ bool ChatHandler::HandleGMTicketGetByNameCommand(const char* args)
     Player *plr = objmgr.GetPlayer(ticket->playerGuid);
     if (plr && plr->IsInWorld())
     {
-        // tell server to update display of ticket status
+        // tell client to update display of ticket status
         WorldPacket data(SMSG_GM_TICKET_STATUS_UPDATE, 4);
         data << uint32(1);
         plr->GetSession()->SendPacket(&data);
@@ -532,13 +533,9 @@ bool ChatHandler::HandleGMTicketAssignToCommand(const char* args)
 
     uint64 tarGUID = objmgr.GetPlayerGUIDByName(targm.c_str());
     uint64 accid = objmgr.GetPlayerAccountIdByGUID(tarGUID);
-    QueryResult_AutoPtr result = LoginDatabase.PQuery("SELECT gmlevel RealmID FROM account_access WHERE id = '%u'", accid);
+    uint32 gmlevel = accmgr.GetSecurity(accid, realmID);
 
-    Field * fields = result->Fetch();
-    uint32 gmlevel = fields[0].GetUInt32();
-    uint32 SecurityRealmID = fields[1].GetUInt32();
-
-    if (!tarGUID|| !result || gmlevel < SEC_MODERATOR || (SecurityRealmID != realmID && SecurityRealmID != -1))
+    if (!tarGUID || gmlevel == SEC_PLAYER)
     {
         SendSysMessage(LANG_COMMAND_TICKETASSIGNERROR_A);
         return true;
@@ -562,7 +559,7 @@ bool ChatHandler::HandleGMTicketAssignToCommand(const char* args)
     Player *plr = objmgr.GetPlayer(ticket->playerGuid);
     if (plr && plr->IsInWorld())
     {
-        // tell server to update display of ticket status
+        // tell client to update display of ticket status
         WorldPacket data(SMSG_GM_TICKET_STATUS_UPDATE, 4);
         data << uint32(1);
         plr->GetSession()->SendPacket(&data);
@@ -618,7 +615,7 @@ bool ChatHandler::HandleGMTicketUnAssignCommand(const char* args)
     Player *player = objmgr.GetPlayer(ticket->playerGuid);
     if (player && player->IsInWorld())
     {
-        // tell server to update display of ticket status
+        // tell client to update display of ticket status
         WorldPacket data(SMSG_GM_TICKET_STATUS_UPDATE, 4);
         data << uint32(1);
         player->GetSession()->SendPacket(&data);
@@ -2292,35 +2289,6 @@ bool ChatHandler::HandleWhispersCommand(const char* args)
 
     SendSysMessage(LANG_USE_BOL);
     SetSentErrorMessage(true);
-    return false;
-}
-
-//Play sound
-bool ChatHandler::HandlePlaySoundCommand(const char* args)
-{
-    // USAGE: .debug playsound #soundid
-    // #soundid - ID decimal number from SoundEntries.dbc (1st column)
-    // this file have about 5000 sounds.
-    // In this realization only caller can hear this sound.
-    if (*args)
-    {
-        uint32 dwSoundId = atoi((char*)args);
-
-        if (!sSoundEntriesStore.LookupEntry(dwSoundId))
-        {
-            PSendSysMessage(LANG_SOUND_NOT_EXIST, dwSoundId);
-            SetSentErrorMessage(true);
-            return false;
-        }
-
-        WorldPacket data(SMSG_PLAY_OBJECT_SOUND,4+8);
-        data << uint32(dwSoundId) << m_session->GetPlayer()->GetGUID();
-        m_session->SendPacket(&data);
-
-        PSendSysMessage(LANG_YOU_HEAR_SOUND, dwSoundId);
-        return true;
-    }
-
     return false;
 }
 

@@ -1081,7 +1081,8 @@ bool Object::PrintIndexError(uint32 index, bool set) const
 
 bool Position::HasInLine(const Unit * const target, float distance, float width) const
 {
-    if (!HasInArc(M_PI, target) || !target->IsWithinDist3d(m_positionX, m_positionY, m_positionZ, distance)) return false;
+    if (!HasInArc(M_PI, target) || !target->IsWithinDist3d(m_positionX, m_positionY, m_positionZ, distance))
+        return false;
     width += target->GetObjectSize() * 0.5f;
     float angle = GetRelativeAngle(target);
     return abs(sin(angle)) * GetExactDist2d(target->GetPositionX(), target->GetPositionY()) < width;
@@ -1317,19 +1318,15 @@ bool Position::HasInArc(float arc, const Position *obj) const
         return true;
 
     // move arc to range 0.. 2*pi
-    while (arc >= 2.0f * M_PI)
-        arc -=  2.0f * M_PI;
-    while (arc < 0)
-        arc +=  2.0f * M_PI;
+    arc = MapManager::NormalizeOrientation(arc);
 
     float angle = GetAngle(obj);
     angle -= m_orientation;
 
     // move angle to range -pi ... +pi
-    while (angle > M_PI)
+    angle = MapManager::NormalizeOrientation(angle);
+    if (angle > M_PI)
         angle -= 2.0f * M_PI;
-    while (angle < -M_PI)
-        angle += 2.0f * M_PI;
 
     float lborder =  -1 * (arc/2.0f);                       // in range -pi..0
     float rborder = (arc/2.0f);                             // in range 0..pi
@@ -1773,6 +1770,7 @@ Pet* Player::SummonPet(uint32 entry, float x, float y, float z, float ang, PetTy
             pet->SetUInt32Value(UNIT_FIELD_PETNEXTLEVELEXP, 1000);
             pet->SetHealth(pet->GetMaxHealth());
             pet->SetPower(POWER_MANA, pet->GetMaxPower(POWER_MANA));
+            pet->SetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP, time(NULL));
             break;
     }
 
@@ -1927,6 +1925,27 @@ void WorldObject::MovePosition(Position &pos, float dist, float angle)
     Oregon::NormalizeMapCoord(pos.m_positionY);
     UpdateGroundPositionZ(pos.m_positionX, pos.m_positionY, pos.m_positionZ);
     pos.m_orientation = m_orientation;
+}
+
+void WorldObject::PlayDistanceSound(uint32 sound_id, Player* target /*= NULL*/)
+{
+    WorldPacket data(SMSG_PLAY_OBJECT_SOUND,4+8);
+    data << uint32(sound_id);
+    data << uint64(GetGUID());
+    if (target)
+        target->SendDirectMessage(&data);
+    else
+        SendMessageToSet(&data, true);
+}
+
+void WorldObject::PlayDirectSound(uint32 sound_id, Player* target /*= NULL*/)
+{
+    WorldPacket data(SMSG_PLAY_SOUND, 4);
+    data << uint32(sound_id);
+    if (target)
+        target->SendDirectMessage(&data);
+    else
+        SendMessageToSet(&data, true);
 }
 
 void WorldObject::DestroyForNearbyPlayers()

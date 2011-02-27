@@ -22,10 +22,30 @@ SDCategory: Areatrigger
 EndScriptData */
 
 /* ContentData
+at_coilfang_waterfall           4591
 at_legion_teleporter            4560 Teleporter TO Invasion Point: Cataclysm
+at_ravenholdt
 EndContentData */
 
 #include "ScriptPCH.h"
+
+/*######
+## at_coilfang_waterfall
+######*/
+
+enum eCoilfangGOs
+{
+    GO_COILFANG_WATERFALL   = 184212
+};
+
+bool AreaTrigger_at_coilfang_waterfall(Player *pPlayer, const AreaTriggerEntry * /*pAt*/)
+{
+    if (GameObject* pGo = GetClosestGameObjectWithEntry(pPlayer, GO_COILFANG_WATERFALL, 35.0f))
+        if (pGo->getLootState() == GO_READY)
+            pGo->UseDoorOrButton();
+
+    return false;
+}
 
 /*#####
 ## at_legion_teleporter
@@ -61,12 +81,36 @@ bool AreaTrigger_at_legion_teleporter(Player *pPlayer, const AreaTriggerEntry * 
     return false;
 }
 
+enum eRavenholdt
+{
+    QUEST_MANOR_RAVENHOLDT  = 6681,
+    NPC_RAVENHOLDT          = 13936
+};
+
+bool AreaTrigger_at_ravenholdt(Player* pPlayer, const AreaTriggerEntry* /*pAt*/)
+{
+    if (pPlayer->GetQuestStatus(QUEST_MANOR_RAVENHOLDT) == QUEST_STATUS_INCOMPLETE)
+        pPlayer->KilledMonsterCredit(NPC_RAVENHOLDT, 0);
+
+    return false;
+}
+
 void AddSC_areatrigger_scripts()
 {
     Script* newscript;
 
     newscript = new Script;
+    newscript->Name = "at_coilfang_waterfall";
+    newscript->pAreaTrigger = &AreaTrigger_at_coilfang_waterfall;
+    newscript->RegisterSelf();
+
+    newscript = new Script;
     newscript->Name = "at_legion_teleporter";
     newscript->pAreaTrigger = &AreaTrigger_at_legion_teleporter;
+    newscript->RegisterSelf();
+
+    newscript = new Script;
+    newscript->Name = "at_ravenholdt";
+    newscript->pAreaTrigger = &AreaTrigger_at_ravenholdt;
     newscript->RegisterSelf();
 }

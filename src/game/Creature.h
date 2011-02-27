@@ -127,6 +127,7 @@ enum SummonMask
     SUMMON_MASK_PET                   = 0x00000010,
     SUMMON_MASK_PUPPET                = 0x00000040,
     SUMMON_MASK_HUNTER_PET            = 0x00000080,
+    SUMMON_MASK_CONTROLABLE_GUARDIAN  = 0x00000100,
 };
 
 // GCC have alternative #pragma pack(N) syntax and old gcc version not support pack(push,N), also any gcc version not support it at some platform
@@ -136,11 +137,13 @@ enum SummonMask
 #pragma pack(push,1)
 #endif
 
+#define MAX_KILL_CREDIT 2
 // from `creature_template` table
 struct CreatureInfo
 {
     uint32  Entry;
     uint32  HeroicEntry;
+    uint32  KillCredit[MAX_KILL_CREDIT];
     uint32  Modelid_A1;
     uint32  Modelid_A2;
     uint32  Modelid_H1;

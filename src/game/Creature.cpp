@@ -166,8 +166,8 @@ m_meleeDamageSchoolMask(SPELL_SCHOOL_MASK_NORMAL),m_creatureInfo(NULL), m_DBTabl
     m_CreatureSpellCooldowns.clear();
     m_CreatureCategoryCooldowns.clear();
     m_GlobalCooldown = 0;
-    m_unit_movement_flags = MOVEFLAG_WALK_MODE;
     DisableReputationGain = false;
+    //m_unit_movement_flags = MOVEFLAG_WALK_MODE;
 
     m_SightDistance = sWorld.getConfig(CONFIG_SIGHT_MONSTER);
     m_CombatDistance = MELEE_RANGE;
@@ -288,13 +288,13 @@ bool Creature::InitEntry(uint32 Entry, uint32 team, const CreatureData *data)
 
     uint32 display_id = objmgr.ChooseDisplayId(team, GetCreatureInfo(), data);
     CreatureModelInfo const *minfo = objmgr.GetCreatureModelRandomGender(display_id);
-    if (!minfo)
+    if (!minfo)                                             // Cancel load if no model defined
     {
         sLog.outErrorDb("Creature (Entry: %u) has model %u not found in table creature_model_info, can't load. ", Entry, display_id);
         return false;
     }
-    else
-        display_id = minfo->modelid;                        // it can be different (for another gender)
+
+    display_id = minfo->modelid;                            // it can be different (for another gender)
 
     SetDisplayId(display_id);
     SetNativeDisplayId(display_id);
@@ -341,55 +341,100 @@ bool Creature::UpdateEntry(uint32 Entry, uint32 team, const CreatureData *data)
     if (!InitEntry(Entry,team,data))
         return false;
 
-    m_regenHealth = GetCreatureInfo()->RegenHealth;
+    CreatureInfo const* cInfo = GetCreatureInfo();
+
+    m_regenHealth = cInfo->RegenHealth;
 
     // creatures always have melee weapon ready if any
-    SetByteValue(UNIT_FIELD_BYTES_2, 0, SHEATH_STATE_MELEE);
+    SetSheath(SHEATH_STATE_MELEE);
     SetByteValue(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_AURAS);
 
-    SelectLevel(GetCreatureInfo());
+    SelectLevel(cInfo);
     if (team == HORDE)
-        SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, GetCreatureInfo()->faction_H);
+        SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, cInfo->faction_H);
     else
-        SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, GetCreatureInfo()->faction_A);
+        SetUInt32Value(UNIT_FIELD_FACTIONTEMPLATE, cInfo->faction_A);
 
-    if (GetCreatureInfo()->flags_extra & CREATURE_FLAG_EXTRA_WORLDEVENT)
-        SetUInt32Value(UNIT_NPC_FLAGS,GetCreatureInfo()->npcflag | gameeventmgr.GetNPCFlag(this));
+    if (cInfo->flags_extra & CREATURE_FLAG_EXTRA_WORLDEVENT)
+        SetUInt32Value(UNIT_NPC_FLAGS,cInfo->npcflag | gameeventmgr.GetNPCFlag(this));
     else
-        SetUInt32Value(UNIT_NPC_FLAGS,GetCreatureInfo()->npcflag);
+        SetUInt32Value(UNIT_NPC_FLAGS,cInfo->npcflag);
 
-    SetAttackTime(BASE_ATTACK,  GetCreatureInfo()->baseattacktime);
-    SetAttackTime(OFF_ATTACK,   GetCreatureInfo()->baseattacktime);
-    SetAttackTime(RANGED_ATTACK,GetCreatureInfo()->rangeattacktime);
+    SetAttackTime(BASE_ATTACK,  cInfo->baseattacktime);
+    SetAttackTime(OFF_ATTACK,   cInfo->baseattacktime);
+    SetAttackTime(RANGED_ATTACK,cInfo->rangeattacktime);
 
-    SetUInt32Value(UNIT_FIELD_FLAGS,GetCreatureInfo()->unit_flags);
-    SetUInt32Value(UNIT_DYNAMIC_FLAGS,GetCreatureInfo()->dynamicflags);
+    SetUInt32Value(UNIT_FIELD_FLAGS,cInfo->unit_flags);
+    SetUInt32Value(UNIT_DYNAMIC_FLAGS,cInfo->dynamicflags);
 
     RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
 
-    SetMeleeDamageSchool(SpellSchools(GetCreatureInfo()->dmgschool));
-    SetModifierValue(UNIT_MOD_ARMOR,             BASE_VALUE, float(GetCreatureInfo()->armor));
-    SetModifierValue(UNIT_MOD_RESISTANCE_HOLY,   BASE_VALUE, float(GetCreatureInfo()->resistance1));
-    SetModifierValue(UNIT_MOD_RESISTANCE_FIRE,   BASE_VALUE, float(GetCreatureInfo()->resistance2));
-    SetModifierValue(UNIT_MOD_RESISTANCE_NATURE, BASE_VALUE, float(GetCreatureInfo()->resistance3));
-    SetModifierValue(UNIT_MOD_RESISTANCE_FROST,  BASE_VALUE, float(GetCreatureInfo()->resistance4));
-    SetModifierValue(UNIT_MOD_RESISTANCE_SHADOW, BASE_VALUE, float(GetCreatureInfo()->resistance5));
-    SetModifierValue(UNIT_MOD_RESISTANCE_ARCANE, BASE_VALUE, float(GetCreatureInfo()->resistance6));
+    SetMeleeDamageSchool(SpellSchools(cInfo->dmgschool));
+    SetModifierValue(UNIT_MOD_ARMOR, BASE_VALUE, float(cInfo->armor));
+
+    if (cInfo->resistance1 < 0)
+    {
+        ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_HOLY, true);
+        SetModifierValue(UNIT_MOD_RESISTANCE_HOLY, BASE_VALUE, 0);
+    }
+    else
+        SetModifierValue(UNIT_MOD_RESISTANCE_HOLY, BASE_VALUE, float(cInfo->resistance1));
+
+    if (cInfo->resistance2 < 0)
+    {
+        ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_FIRE, true);
+        SetModifierValue(UNIT_MOD_RESISTANCE_FIRE, BASE_VALUE, 0);
+    }
+    else
+        SetModifierValue(UNIT_MOD_RESISTANCE_FIRE, BASE_VALUE, float(cInfo->resistance2));
+
+    if (cInfo->resistance3 < 0)
+    {
+        ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_NATURE, true);
+        SetModifierValue(UNIT_MOD_RESISTANCE_NATURE, BASE_VALUE, 0);
+    }
+    else
+        SetModifierValue(UNIT_MOD_RESISTANCE_NATURE, BASE_VALUE, float(cInfo->resistance3));
+
+    if (cInfo->resistance4 < 0)
+    {
+        ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_FROST, true);
+        SetModifierValue(UNIT_MOD_RESISTANCE_FROST, BASE_VALUE, 0);
+    }
+    else
+        SetModifierValue(UNIT_MOD_RESISTANCE_FROST, BASE_VALUE, float(cInfo->resistance4));
+
+    if (cInfo->resistance5 < 0)
+    {
+        ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_SHADOW, true);
+        SetModifierValue(UNIT_MOD_RESISTANCE_SHADOW, BASE_VALUE, 0);
+    }
+    else
+        SetModifierValue(UNIT_MOD_RESISTANCE_SHADOW, BASE_VALUE, float(cInfo->resistance5));
+
+    if (cInfo->resistance6 < 0)
+    {
+        ApplySpellImmune(0, IMMUNITY_SCHOOL, SPELL_SCHOOL_MASK_ARCANE, true);
+        SetModifierValue(UNIT_MOD_RESISTANCE_ARCANE, BASE_VALUE, 0);
+    }
+    else
+        SetModifierValue(UNIT_MOD_RESISTANCE_ARCANE, BASE_VALUE, float(cInfo->resistance6));
+
 
     SetCanModifyStats(true);
     UpdateAllStats();
 
-    FactionTemplateEntry const* factionTemplate = sFactionTemplateStore.LookupEntry(GetCreatureInfo()->faction_A);
-    if (factionTemplate)                                    // check and error show at loading templates
+    // checked and error show at loading templates
+    if (FactionTemplateEntry const* factionTemplate = sFactionTemplateStore.LookupEntry(cInfo->faction_A))
     {
         FactionEntry const* factionEntry = sFactionStore.LookupEntry(factionTemplate->faction);
         if (factionEntry)
-            if (!(GetCreatureInfo()->flags_extra & CREATURE_FLAG_EXTRA_CIVILIAN) &&
+            if (!(cInfo->flags_extra & CREATURE_FLAG_EXTRA_CIVILIAN) &&
                 (factionEntry->team == ALLIANCE || factionEntry->team == HORDE))
                 SetPvP(true);
     }
 
-    // HACK: trigger creature is always not selectable
+    // trigger creature is always not selectable and can not be attacked
     if (isTrigger())
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
 
@@ -401,11 +446,18 @@ bool Creature::UpdateEntry(uint32 Entry, uint32 team, const CreatureData *data)
     else
         SetReactState(REACT_AGGRESSIVE);
 
-    if (GetCreatureInfo()->flags_extra & CREATURE_FLAG_EXTRA_NO_TAUNT)
+    if (cInfo->flags_extra & CREATURE_FLAG_EXTRA_NO_TAUNT)
     {
         ApplySpellImmune(0, IMMUNITY_STATE, SPELL_AURA_MOD_TAUNT, true);
         ApplySpellImmune(0, IMMUNITY_EFFECT,SPELL_EFFECT_ATTACK_ME, true);
     }
+
+    // TODO: In fact monster move flags should be set - not movement flags.
+    if (cInfo->InhabitType & INHABIT_AIR)
+        AddUnitMovementFlag(MOVEFLAG_FLYING | MOVEFLAG_FLYING2);
+
+    if (cInfo->InhabitType & INHABIT_WATER)
+        AddUnitMovementFlag(MOVEFLAG_SWIMMING);
 
     return true;
 }
@@ -667,7 +719,21 @@ bool Creature::Create(uint32 guidlow, Map *map, uint32 Entry, uint32 team, float
                 break;
         }
         LoadCreaturesAddon();
+
+        if (GetCreatureInfo()->InhabitType & INHABIT_AIR)
+        {
+            if (GetDefaultMovementType() == IDLE_MOTION_TYPE)
+                AddUnitMovementFlag(MOVEFLAG_FLYING);
+            else
+                SetFlying(true);
+        }
+
+        if (GetCreatureInfo()->InhabitType & INHABIT_WATER)
+        {
+            AddUnitMovementFlag(MOVEFLAG_SWIMMING);
+        }
     }
+
     return bResult;
 }
 
@@ -793,7 +859,7 @@ bool Creature::isCanTrainingAndResetTalentsOf(Player* pPlayer) const
         && pPlayer->getClass() == GetCreatureInfo()->classNum;
 }
 
-void Creature::AI_SendMoveToPacket(float x, float y, float z, uint32 time, uint32 MovementFlags, uint8 type)
+void Creature::AI_SendMoveToPacket(float x, float y, float z, uint32 time, uint32 /*MovementFlags*/, uint8 /*type*/)
 {
     /*    uint32 timeElap = getMSTime();
         if ((timeElap - m_startMove) < m_moveTime)
@@ -1330,8 +1396,12 @@ void Creature::setDeathState(DeathState s)
         ResetPlayerDamageReq();
         Unit::setDeathState(ALIVE);
         CreatureInfo const *cinfo = GetCreatureInfo();
-        RemoveFlag (UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
+        RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_SKINNABLE);
         AddUnitMovementFlag(MOVEFLAG_WALK_MODE);
+        if (GetCreatureInfo()->InhabitType & INHABIT_AIR)
+            AddUnitMovementFlag(MOVEFLAG_FLYING | MOVEFLAG_FLYING2);
+        if (GetCreatureInfo()->InhabitType & INHABIT_WATER)
+            AddUnitMovementFlag(MOVEFLAG_SWIMMING);
         SetUInt32Value(UNIT_NPC_FLAGS, cinfo->npcflag);
         clearUnitState(UNIT_STAT_ALL_STATE);
         i_motionMaster.Initialize();

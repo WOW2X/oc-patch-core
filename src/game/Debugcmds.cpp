@@ -243,13 +243,65 @@ bool ChatHandler::HandleUpdateWorldStateCommand(const char* args)
     return true;
 }
 
-bool ChatHandler::HandlePlaySound2Command(const char* args)
+bool ChatHandler::HandleDebugPlayCinematicCommand(const char* args)
 {
-    if (!args)
+    // USAGE: .debug play cinematic #cinematicid
+    // #cinematicid - ID decimal number from CinemaicSequences.dbc (1st column)
+    if (!*args)
+    {
+        SendSysMessage(LANG_BAD_VALUE);
+        SetSentErrorMessage(true);
         return false;
+    }
 
-    uint32 soundid = atoi(args);
-    m_session->GetPlayer()->PlaySound(soundid, false);
+    uint32 dwId = atoi((char*)args);
+
+    if (!sCinematicSequencesStore.LookupEntry(dwId))
+    {
+        PSendSysMessage(LANG_CINEMATIC_NOT_EXIST, dwId);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    m_session->GetPlayer()->SendCinematicStart(dwId);
+    return true;
+}
+
+//Play sound
+bool ChatHandler::HandleDebugPlaySoundCommand(const char* args)
+{
+    // USAGE: .debug playsound #soundid
+    // #soundid - ID decimal number from SoundEntries.dbc (1st column)
+    if (!*args)
+    {
+        SendSysMessage(LANG_BAD_VALUE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    uint32 dwSoundId = atoi((char*)args);
+
+    if (!sSoundEntriesStore.LookupEntry(dwSoundId))
+    {
+        PSendSysMessage(LANG_SOUND_NOT_EXIST, dwSoundId);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    Unit* unit = getSelectedUnit();
+    if (!unit)
+    {
+        SendSysMessage(LANG_SELECT_CHAR_OR_CREATURE);
+        SetSentErrorMessage(true);
+        return false;
+    }
+
+    if (m_session->GetPlayer()->GetSelection())
+        unit->PlayDistanceSound(dwSoundId,m_session->GetPlayer());
+    else
+        unit->PlayDirectSound(dwSoundId,m_session->GetPlayer());
+
+    PSendSysMessage(LANG_YOU_HEAR_SOUND, dwSoundId);
     return true;
 }
 

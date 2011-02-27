@@ -128,7 +128,7 @@ struct boss_high_astromancer_solarianAI : public ScriptedAI
         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
         me->SetVisibility(VISIBILITY_ON);
         me->SetFloatValue(OBJECT_FIELD_SCALE_X, defaultsize);
-        me->SetUInt32Value(UNIT_FIELD_DISPLAYID, MODEL_HUMAN);
+        me->SetDisplayId(MODEL_HUMAN);
 
         Summons.DespawnAll();
     }
@@ -154,7 +154,7 @@ struct boss_high_astromancer_solarianAI : public ScriptedAI
     void JustDied(Unit *victim)
     {
         me->SetFloatValue(OBJECT_FIELD_SCALE_X, defaultsize);
-        me->SetUInt32Value(UNIT_FIELD_DISPLAYID, MODEL_HUMAN);
+        me->SetDisplayId(MODEL_HUMAN);
         DoScriptText(SAY_DEATH, me);
 
         if (pInstance)
@@ -273,7 +273,7 @@ struct boss_high_astromancer_solarianAI : public ScriptedAI
                 Phase1_Timer = 50000;
                 //After these 50 seconds she portals to the middle of the room and disappears, leaving 3 light portals behind.
                 me->GetMotionMaster()->Clear();
-                me->Relocate(SolarianPos[0], SolarianPos[1], SolarianPos[2], SolarianPos[3]);
+                me->GetMap()->CreatureRelocation(me, SolarianPos[0], SolarianPos[1], SolarianPos[2], SolarianPos[3]);
                 for (int i=0; i<=2; ++i)
                 {
                     if (!i)
@@ -338,7 +338,7 @@ struct boss_high_astromancer_solarianAI : public ScriptedAI
                 //15 seconds later Solarian reappears out of one of the 3 portals. Simultaneously, 2 healers appear in the two other portals.
                 int i = rand()%3;
                 me->GetMotionMaster()->Clear();
-                me->Relocate(Portals[i][0], Portals[i][1], Portals[i][2], CENTER_O);
+                me->GetMap()->CreatureRelocation(me, Portals[i][0], Portals[i][1], Portals[i][2], CENTER_O);
 
                 for (int j=0; j<=2; j++)
                     if (j != i)
@@ -380,7 +380,7 @@ struct boss_high_astromancer_solarianAI : public ScriptedAI
             DoScriptText(SAY_VOIDA, me);
             DoScriptText(SAY_VOIDB, me);
             me->SetArmor(WV_ARMOR);
-            me->SetUInt32Value(UNIT_FIELD_DISPLAYID, MODEL_VOIDWALKER);
+            me->SetDisplayId(MODEL_VOIDWALKER);
             me->SetFloatValue(OBJECT_FIELD_SCALE_X, defaultsize*2.5f);
         }
 

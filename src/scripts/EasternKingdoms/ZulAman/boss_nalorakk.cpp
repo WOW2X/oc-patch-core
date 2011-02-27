@@ -88,7 +88,6 @@ float NalorakkWay[8][3] =
 #define YELL_SHIFTEDTOBEAR      "You call on da beast, you gonna get more dan you bargain for!"
 #define SOUND_YELL_TOBEAR       12072
 
-
 struct boss_nalorakkAI : public ScriptedAI
 {
     boss_nalorakkAI(Creature *c) : ScriptedAI(c)
@@ -98,7 +97,7 @@ struct boss_nalorakkAI : public ScriptedAI
         pInstance = c->GetInstanceData();
 
         // hack mangle as it affects Nalorakk instead of victim
-        SpellEntry *TempSpell1 = (SpellEntry*)GetSpellStore()->LookupEntry(42389);
+        SpellEntry *TempSpell1 = GET_SPELL(42389);
         if (TempSpell1)
         {
             TempSpell1->EffectImplicitTargetA[1] = TARGET_UNIT_TARGET_ENEMY;
@@ -174,7 +173,7 @@ struct boss_nalorakkAI : public ScriptedAI
         if (!templist.size())
             return;
 
-        for (std::list<Creature*>::iterator i = templist.begin(); i != templist.end(); ++i)
+        for (std::list<Creature*>::const_iterator i = templist.begin(); i != templist.end(); ++i)
         {
             if ((*i) && me->IsWithinDistInMap((*i),25))
             {
@@ -263,7 +262,7 @@ struct boss_nalorakkAI : public ScriptedAI
         }
     }
 
-    void EnterCombat(Unit *who)
+    void EnterCombat(Unit * /*who*/)
     {
         if (pInstance)
             pInstance->SetData(DATA_NALORAKKEVENT, IN_PROGRESS);
@@ -273,7 +272,7 @@ struct boss_nalorakkAI : public ScriptedAI
         DoZoneInCombat();
     }
 
-    void JustDied(Unit* Killer)
+    void JustDied(Unit* /*Killer*/)
     {
         if (pInstance)
             pInstance->SetData(DATA_NALORAKKEVENT, DONE);
@@ -282,7 +281,7 @@ struct boss_nalorakkAI : public ScriptedAI
         DoPlaySoundToSet(me, SOUND_YELL_DEATH);
     }
 
-    void KilledUnit(Unit* victim)
+    void KilledUnit(Unit* /*victim*/)
     {
         switch (urand(0,1))
         {

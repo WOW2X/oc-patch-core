@@ -60,6 +60,90 @@ ScriptMapMap sEventScripts;
 ScriptMapMap sGossipScripts;
 ScriptMapMap sWaypointScripts;
 
+std::string GetScriptsTableNameByType(ScriptsType type)
+{
+    std::string res = "";
+    switch (type)
+    {
+        case SCRIPTS_QUEST_END:     res = "quest_end_scripts";  break;
+        case SCRIPTS_QUEST_START:   res = "quest_start_scripts";break;
+        case SCRIPTS_SPELL:         res = "spell_scripts";      break;
+        case SCRIPTS_GAMEOBJECT:    res = "gameobject_scripts"; break;
+        case SCRIPTS_EVENT:         res = "event_scripts";      break;
+        case SCRIPTS_WAYPOINT:      res = "waypoint_scripts";   break;
+        case SCRIPTS_GOSSIP:        res = "gossip_scripts";     break;
+        default: break;
+    }
+    return res;
+}
+
+ScriptMapMap* GetScriptsMapByType(ScriptsType type)
+{
+    ScriptMapMap* res = NULL;
+    switch (type)
+    {
+        case SCRIPTS_QUEST_END:     res = &sQuestEndScripts;    break;
+        case SCRIPTS_QUEST_START:   res = &sQuestStartScripts;  break;
+        case SCRIPTS_SPELL:         res = &sSpellScripts;       break;
+        case SCRIPTS_GAMEOBJECT:    res = &sGameObjectScripts;  break;
+        case SCRIPTS_EVENT:         res = &sEventScripts;       break;
+        case SCRIPTS_WAYPOINT:      res = &sWaypointScripts;    break;
+        case SCRIPTS_GOSSIP:        res = &sGossipScripts;      break;
+        default: break;
+    }
+    return res;
+}
+
+std::string GetScriptCommandName(ScriptCommands command)
+{
+    std::string res = "";
+    switch (command)
+    {
+        case SCRIPT_COMMAND_TALK: res = "SCRIPT_COMMAND_TALK"; break;
+        case SCRIPT_COMMAND_EMOTE: res = "SCRIPT_COMMAND_EMOTE"; break;
+        case SCRIPT_COMMAND_FIELD_SET: res = "SCRIPT_COMMAND_FIELD_SET"; break;
+        case SCRIPT_COMMAND_MOVE_TO: res = "SCRIPT_COMMAND_MOVE_TO"; break;
+        case SCRIPT_COMMAND_FLAG_SET: res = "SCRIPT_COMMAND_FLAG_SET"; break;
+        case SCRIPT_COMMAND_FLAG_REMOVE: res = "SCRIPT_COMMAND_FLAG_REMOVE"; break;
+        case SCRIPT_COMMAND_TELEPORT_TO: res = "SCRIPT_COMMAND_TELEPORT_TO"; break;
+        case SCRIPT_COMMAND_QUEST_EXPLORED: res = "SCRIPT_COMMAND_QUEST_EXPLORED"; break;
+        case SCRIPT_COMMAND_KILL_CREDIT: res = "SCRIPT_COMMAND_KILL_CREDIT"; break;
+        case SCRIPT_COMMAND_RESPAWN_GAMEOBJECT: res = "SCRIPT_COMMAND_RESPAWN_GAMEOBJECT"; break;
+        case SCRIPT_COMMAND_TEMP_SUMMON_CREATURE: res = "SCRIPT_COMMAND_TEMP_SUMMON_CREATURE"; break;
+        case SCRIPT_COMMAND_OPEN_DOOR: res = "SCRIPT_COMMAND_OPEN_DOOR"; break;
+        case SCRIPT_COMMAND_CLOSE_DOOR: res = "SCRIPT_COMMAND_CLOSE_DOOR"; break;
+        case SCRIPT_COMMAND_ACTIVATE_OBJECT: res = "SCRIPT_COMMAND_ACTIVATE_OBJECT"; break;
+        case SCRIPT_COMMAND_REMOVE_AURA: res = "SCRIPT_COMMAND_REMOVE_AURA"; break;
+        case SCRIPT_COMMAND_CAST_SPELL: res = "SCRIPT_COMMAND_CAST_SPELL"; break;
+        case SCRIPT_COMMAND_PLAY_SOUND: res = "SCRIPT_COMMAND_PLAY_SOUND"; break;
+        case SCRIPT_COMMAND_CREATE_ITEM: res = "SCRIPT_COMMAND_CREATE_ITEM"; break;
+        case SCRIPT_COMMAND_DESPAWN_SELF: res = "SCRIPT_COMMAND_DESPAWN_SELF"; break;
+        case SCRIPT_COMMAND_LOAD_PATH: res = "SCRIPT_COMMAND_LOAD_PATH"; break;
+        case SCRIPT_COMMAND_CALLSCRIPT_TO_UNIT: res = "SCRIPT_COMMAND_CALLSCRIPT_TO_UNIT"; break;
+        case SCRIPT_COMMAND_KILL: res = "SCRIPT_COMMAND_KILL"; break;
+        // Oregon only
+        case SCRIPT_COMMAND_ORIENTATION: res = "SCRIPT_COMMAND_ORIENTATION"; break;
+        case SCRIPT_COMMAND_EQUIP: res = "SCRIPT_COMMAND_EQUIP"; break;
+        case SCRIPT_COMMAND_MODEL: res = "SCRIPT_COMMAND_MODEL"; break;
+        case SCRIPT_COMMAND_CLOSE_GOSSIP: res = "SCRIPT_COMMAND_CLOSE_GOSSIP"; break;
+        default:
+        {
+            char sz[32];
+            sprintf(sz, "Unknown command: %u", command);
+            res = sz;
+            break;
+        }
+    }
+    return res;
+}
+
+std::string ScriptInfo::GetDebugInfo() const
+{
+    char sz[256];
+    sprintf(sz, "%s ('%s' script id: %u)", GetScriptCommandName(command).c_str(), GetScriptsTableNameByType(type).c_str(), id);
+    return std::string(sz);
+}
+
 bool normalizePlayerName(std::string& name)
 {
     if (name.empty())
@@ -532,6 +616,18 @@ void ObjectMgr::LoadCreatureTemplates()
         {
             sLog.outErrorDb("Creature (Entry: %u) has invalid Modelid_H2 (%u), setting it to 0", cInfo->Entry, cInfo->Modelid_H2);
             const_cast<CreatureInfo*>(cInfo)->Modelid_H2 = 0;
+        }
+
+        for (int k = 0; k < MAX_KILL_CREDIT; ++k)
+        {
+            if (cInfo->KillCredit[k])
+            {
+                if (!GetCreatureTemplate(cInfo->KillCredit[k]))
+                {
+                    sLog.outErrorDb("Creature (Entry: %u) has not existed creature entry in `KillCredit%d` (%u)",cInfo->Entry,k+1,cInfo->KillCredit[k]);
+                    const_cast<CreatureInfo*>(cInfo)->KillCredit[k] = 0;
+                }
+            }
         }
 
         if (cInfo->dmgschool >= MAX_SPELL_SCHOOL)
@@ -1193,6 +1289,24 @@ void ObjectMgr::LoadGameobjects()
         int16 gameEvent     = fields[15].GetInt16();
         int16 PoolId        = fields[16].GetInt16();
 
+
+        if (data.rotation2 < -1.0f || data.rotation2 > 1.0f)
+        {
+            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation2 (%f) value, skip",guid,data.id,data.rotation2);
+            continue;
+        }
+
+        if (data.rotation3 < -1.0f || data.rotation3 > 1.0f)
+        {
+            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid rotation3 (%f) value, skip",guid,data.id,data.rotation3);
+            continue;
+        }
+
+        if (!MapManager::IsValidMapCoord(data.mapid,data.posX,data.posY,data.posZ,data.orientation))
+        {
+            sLog.outErrorDb("Table `gameobject` have gameobject (GUID: %u Entry: %u) with invalid coordinates, skip",guid,data.id);
+            continue;
+        }
 
         if (gameEvent == 0 && PoolId == 0)                      // if not this is to be managed by GameEvent System or Pool system
             AddGameobjectToGrid(guid, &data);
@@ -3544,16 +3658,24 @@ void ObjectMgr::LoadPetCreateSpells()
     sLog.outString(">> Loaded %u pet create spells", count);
 }
 
-void ObjectMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
+void ObjectMgr::LoadScripts(ScriptsType type)
 {
+    ScriptMapMap *scripts = GetScriptsMapByType(type);
+    if (!scripts)
+        return;
+
+    std::string tableName = GetScriptsTableNameByType(type);
+    if (tableName.empty())
+        return;
+
     if (sWorld.IsScriptScheduled())                          // function don't must be called in time scripts use.
         return;
 
-    sLog.outString("%s :", tablename);
+    sLog.outString("%s :", tableName.c_str());
 
-    scripts.clear();                                        // need for reload support
+    scripts->clear();                                        // need for reload support
 
-    QueryResult_AutoPtr result = WorldDatabase.PQuery("SELECT id,delay,command,datalong,datalong2,dataint, x, y, z, o FROM %s", tablename);
+    QueryResult_AutoPtr result = WorldDatabase.PQuery("SELECT id,delay,command,datalong,datalong2,dataint, x, y, z, o FROM %s", tableName.c_str());
 
     uint32 count = 0;
 
@@ -3575,47 +3697,51 @@ void ObjectMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
 
         Field *fields = result->Fetch();
         ScriptInfo tmp;
-        tmp.id        = fields[0].GetUInt32();
-        tmp.delay     = fields[1].GetUInt32();
-        tmp.command   = fields[2].GetUInt32();
-        tmp.datalong  = fields[3].GetUInt32();
-        tmp.datalong2 = fields[4].GetUInt32();
-        tmp.dataint   = fields[5].GetInt32();
-        tmp.x         = fields[6].GetFloat();
-        tmp.y         = fields[7].GetFloat();
-        tmp.z         = fields[8].GetFloat();
-        tmp.o         = fields[9].GetFloat();
+        tmp.type      = type;
+        tmp.id           = fields[0].GetUInt32();
+        tmp.delay        = fields[1].GetUInt32();
+        tmp.command      = ScriptCommands(fields[2].GetUInt32());
+        tmp.Raw.nData[0] = fields[3].GetUInt32();
+        tmp.Raw.nData[1] = fields[4].GetUInt32();
+        tmp.Raw.nData[2] = fields[5].GetInt32();
+        tmp.Raw.fData[0] = fields[6].GetFloat();
+        tmp.Raw.fData[1] = fields[7].GetFloat();
+        tmp.Raw.fData[2] = fields[8].GetFloat();
+        tmp.Raw.fData[3] = fields[9].GetFloat();
 
         // generic command args check
-        switch(tmp.command)
+        switch (tmp.command)
         {
             case SCRIPT_COMMAND_TALK:
             {
-                if (tmp.datalong > 4)
+                if (tmp.Talk.ChatType > CHAT_TYPE_WHISPER && tmp.Talk.ChatType != CHAT_MSG_RAID_BOSS_WHISPER)
                 {
-                    sLog.outErrorDb("Table %s has invalid talk type (datalong = %u) in SCRIPT_COMMAND_TALK for script id %u",tablename,tmp.datalong,tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid talk type (datalong = %u) in SCRIPT_COMMAND_TALK for script id %u",
+                        tableName.c_str(), tmp.Talk.ChatType, tmp.id);
                     continue;
                 }
-                if (tmp.dataint == 0)
+                if (!tmp.Talk.TextID)
                 {
-                    sLog.outErrorDb("Table %s has invalid talk text id (dataint = %i) in SCRIPT_COMMAND_TALK for script id %u",tablename,tmp.dataint,tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid talk text id (dataint = %i) in SCRIPT_COMMAND_TALK for script id %u",
+                        tableName.c_str(), tmp.Talk.TextID, tmp.id);
                     continue;
                 }
-                if (tmp.dataint < MIN_DB_SCRIPT_STRING_ID || tmp.dataint >= MAX_DB_SCRIPT_STRING_ID)
+                if (tmp.Talk.TextID < MIN_DB_SCRIPT_STRING_ID || tmp.Talk.TextID >= MAX_DB_SCRIPT_STRING_ID)
                 {
-                    sLog.outErrorDb("Table %s has out of range text id (dataint = %i expected %u-%u) in SCRIPT_COMMAND_TALK for script id %u",tablename,tmp.dataint,MIN_DB_SCRIPT_STRING_ID,MAX_DB_SCRIPT_STRING_ID,tmp.id);
+                    sLog.outErrorDb("Table `%s` has out of range text id (dataint = %i expected %u-%u) in SCRIPT_COMMAND_TALK for script id %u",
+                        tableName.c_str(), tmp.Talk.TextID, MIN_DB_SCRIPT_STRING_ID, MAX_DB_SCRIPT_STRING_ID, tmp.id);
                     continue;
                 }
 
-                // if (!objmgr.GetMangosStringLocale(tmp.dataint)) will checked after db_script_string loading
                 break;
             }
 
             case SCRIPT_COMMAND_EMOTE:
             {
-                if (!sEmotesStore.LookupEntry(tmp.datalong))
+                if (!sEmotesStore.LookupEntry(tmp.Emote.EmoteID))
                 {
-                    sLog.outErrorDb("Table %s has invalid emote id (datalong = %u) in SCRIPT_COMMAND_EMOTE for script id %u",tablename,tmp.datalong,tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid emote id (datalong = %u) in SCRIPT_COMMAND_EMOTE for script id %u",
+                        tableName.c_str(), tmp.Emote.EmoteID, tmp.id);
                     continue;
                 }
                 break;
@@ -3623,31 +3749,73 @@ void ObjectMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
 
             case SCRIPT_COMMAND_TELEPORT_TO:
             {
-                if (!sMapStore.LookupEntry(tmp.datalong))
+                if (!sMapStore.LookupEntry(tmp.TeleportTo.MapID))
                 {
-                    sLog.outErrorDb("Table %s has invalid map (Id: %u) in SCRIPT_COMMAND_TELEPORT_TO for script id %u",tablename,tmp.datalong,tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid map (Id: %u) in SCRIPT_COMMAND_TELEPORT_TO for script id %u",
+                        tableName.c_str(), tmp.TeleportTo.MapID, tmp.id);
                     continue;
                 }
 
-                if (!Oregon::IsValidMapCoord(tmp.x,tmp.y,tmp.z,tmp.o))
+                if (!Oregon::IsValidMapCoord(tmp.TeleportTo.DestX, tmp.TeleportTo.DestY, tmp.TeleportTo.DestZ, tmp.TeleportTo.Orientation))
                 {
-                    sLog.outErrorDb("Table %s has invalid coordinates (X: %f Y: %f) in SCRIPT_COMMAND_TELEPORT_TO for script id %u",tablename,tmp.x,tmp.y,tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid coordinates (X: %f Y: %f Z: %f O: %f) in SCRIPT_COMMAND_TELEPORT_TO for script id %u",
+                        tableName.c_str(), tmp.TeleportTo.DestX, tmp.TeleportTo.DestY, tmp.TeleportTo.DestZ, tmp.TeleportTo.Orientation, tmp.id);
                     continue;
                 }
                 break;
             }
 
-            case SCRIPT_COMMAND_TEMP_SUMMON_CREATURE:
+            case SCRIPT_COMMAND_QUEST_EXPLORED:
             {
-                if (!Oregon::IsValidMapCoord(tmp.x,tmp.y,tmp.z,tmp.o))
+                Quest const* quest = GetQuestTemplate(tmp.QuestExplored.QuestID);
+                if (!quest)
                 {
-                    sLog.outErrorDb("Table %s has invalid coordinates (X: %f Y: %f) in SCRIPT_COMMAND_TEMP_SUMMON_CREATURE for script id %u",tablename,tmp.x,tmp.y,tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid quest (ID: %u) in SCRIPT_COMMAND_QUEST_EXPLORED in `datalong` for script id %u",
+                        tableName.c_str(), tmp.QuestExplored.QuestID, tmp.id);
                     continue;
                 }
 
-                if (!GetCreatureTemplate(tmp.datalong))
+                if (!quest->HasFlag(QUEST_OREGON_FLAGS_EXPLORATION_OR_EVENT))
                 {
-                    sLog.outErrorDb("Table %s has invalid creature (Entry: %u) in SCRIPT_COMMAND_TEMP_SUMMON_CREATURE for script id %u",tablename,tmp.datalong,tmp.id);
+                    sLog.outErrorDb("Table `%s` has quest (ID: %u) in SCRIPT_COMMAND_QUEST_EXPLORED in `datalong` for script id %u, but quest not have flag QUEST_OREGON_FLAGS_EXPLORATION_OR_EVENT in quest flags. Script command or quest flags wrong. Quest modified to require objective.",
+                        tableName.c_str(), tmp.QuestExplored.QuestID, tmp.id);
+
+                    // this will prevent quest completing without objective
+                    const_cast<Quest*>(quest)->SetFlag(QUEST_OREGON_FLAGS_EXPLORATION_OR_EVENT);
+
+                    // continue; - quest objective requirement set and command can be allowed
+                }
+
+                if (float(tmp.QuestExplored.Distance) > DEFAULT_VISIBILITY_DISTANCE)
+                {
+                    sLog.outErrorDb("Table `%s` has too large distance (%u) for exploring objective complete in `datalong2` in SCRIPT_COMMAND_QUEST_EXPLORED in `datalong` for script id %u",
+                        tableName.c_str(), tmp.QuestExplored.Distance, tmp.id);
+                    continue;
+                }
+
+                if (tmp.QuestExplored.Distance && float(tmp.QuestExplored.Distance) > DEFAULT_VISIBILITY_DISTANCE)
+                {
+                    sLog.outErrorDb("Table `%s` has too large distance (%u) for exploring objective complete in `datalong2` in SCRIPT_COMMAND_QUEST_EXPLORED in `datalong` for script id %u, max distance is %f or 0 for disable distance check",
+                        tableName.c_str(), tmp.QuestExplored.Distance, tmp.id, DEFAULT_VISIBILITY_DISTANCE);
+                    continue;
+                }
+
+                if (tmp.QuestExplored.Distance && float(tmp.QuestExplored.Distance) < INTERACTION_DISTANCE)
+                {
+                    sLog.outErrorDb("Table `%s` has too small distance (%u) for exploring objective complete in `datalong2` in SCRIPT_COMMAND_QUEST_EXPLORED in `datalong` for script id %u, min distance is %f or 0 for disable distance check",
+                        tableName.c_str(), tmp.QuestExplored.Distance, tmp.id, INTERACTION_DISTANCE);
+                    continue;
+                }
+
+                break;
+            }
+
+            case SCRIPT_COMMAND_KILL_CREDIT:
+            {
+                if (!GetCreatureTemplate(tmp.KillCredit.CreatureEntry))
+                {
+                    sLog.outErrorDb("Table `%s` has invalid creature (Entry: %u) in SCRIPT_COMMAND_KILL_CREDIT for script id %u",
+                        tableName.c_str(), tmp.KillCredit.CreatureEntry, tmp.id);
                     continue;
                 }
                 break;
@@ -3655,17 +3823,19 @@ void ObjectMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
 
             case SCRIPT_COMMAND_RESPAWN_GAMEOBJECT:
             {
-                GameObjectData const* data = GetGOData(tmp.datalong);
+                GameObjectData const* data = GetGOData(tmp.RespawnGameobject.GOGuid);
                 if (!data)
                 {
-                    sLog.outErrorDb("Table %s has invalid gameobject (GUID: %u) in SCRIPT_COMMAND_RESPAWN_GAMEOBJECT for script id %u",tablename,tmp.datalong,tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid gameobject (GUID: %u) in SCRIPT_COMMAND_RESPAWN_GAMEOBJECT for script id %u",
+                        tableName.c_str(), tmp.RespawnGameobject.GOGuid, tmp.id);
                     continue;
                 }
 
                 GameObjectInfo const* info = GetGameObjectInfo(data->id);
                 if (!info)
                 {
-                    sLog.outErrorDb("Table %s has gameobject with invalid entry (GUID: %u Entry: %u) in SCRIPT_COMMAND_RESPAWN_GAMEOBJECT for script id %u",tablename,tmp.datalong,data->id,tmp.id);
+                    sLog.outErrorDb("Table `%s` has gameobject with invalid entry (GUID: %u Entry: %u) in SCRIPT_COMMAND_RESPAWN_GAMEOBJECT for script id %u",
+                        tableName.c_str(), tmp.RespawnGameobject.GOGuid, data->id, tmp.id);
                     continue;
                 }
 
@@ -3675,73 +3845,54 @@ void ObjectMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
                     info->type == GAMEOBJECT_TYPE_BUTTON      ||
                     info->type == GAMEOBJECT_TYPE_TRAP)
                 {
-                    sLog.outErrorDb("Table %s has gameobject type (%u) unsupported by command SCRIPT_COMMAND_RESPAWN_GAMEOBJECT for script id %u",tablename,info->id,tmp.id);
+                    sLog.outErrorDb("Table `%s` has gameobject type (%u) unsupported by command SCRIPT_COMMAND_RESPAWN_GAMEOBJECT for script id %u",
+                        tableName.c_str(), info->id, tmp.id);
                     continue;
                 }
                 break;
             }
+
+            case SCRIPT_COMMAND_TEMP_SUMMON_CREATURE:
+            {
+                if (!Oregon::IsValidMapCoord(tmp.TempSummonCreature.PosX, tmp.TempSummonCreature.PosY, tmp.TempSummonCreature.PosZ, tmp.TempSummonCreature.Orientation))
+                {
+                    sLog.outErrorDb("Table `%s` has invalid coordinates (X: %f Y: %f Z: %f O: %f) in SCRIPT_COMMAND_TEMP_SUMMON_CREATURE for script id %u",
+                        tableName.c_str(), tmp.TempSummonCreature.PosX, tmp.TempSummonCreature.PosY, tmp.TempSummonCreature.PosZ, tmp.TempSummonCreature.Orientation, tmp.id);
+                    continue;
+                }
+
+                if (!GetCreatureTemplate(tmp.TempSummonCreature.CreatureEntry))
+                {
+                    sLog.outErrorDb("Table `%s` has invalid creature (Entry: %u) in SCRIPT_COMMAND_TEMP_SUMMON_CREATURE for script id %u",
+                        tableName.c_str(), tmp.TempSummonCreature.CreatureEntry, tmp.id);
+                    continue;
+                }
+                break;
+            }
+
             case SCRIPT_COMMAND_OPEN_DOOR:
             case SCRIPT_COMMAND_CLOSE_DOOR:
             {
-                GameObjectData const* data = GetGOData(tmp.datalong);
+                GameObjectData const* data = GetGOData(tmp.ToggleDoor.GOGuid);
                 if (!data)
                 {
-                    sLog.outErrorDb("Table %s has invalid gameobject (GUID: %u) in %s for script id %u",tablename,tmp.datalong,(tmp.command == SCRIPT_COMMAND_OPEN_DOOR ? "SCRIPT_COMMAND_OPEN_DOOR" : "SCRIPT_COMMAND_CLOSE_DOOR"),tmp.id);
+                    sLog.outErrorDb("Table `%s` has invalid gameobject (GUID: %u) in %s for script id %u",
+                        tableName.c_str(), tmp.ToggleDoor.GOGuid, GetScriptCommandName(tmp.command).c_str(), tmp.id);
                     continue;
                 }
 
                 GameObjectInfo const* info = GetGameObjectInfo(data->id);
                 if (!info)
                 {
-                    sLog.outErrorDb("Table %s has gameobject with invalid entry (GUID: %u Entry: %u) in %s for script id %u",tablename,tmp.datalong,data->id,(tmp.command == SCRIPT_COMMAND_OPEN_DOOR ? "SCRIPT_COMMAND_OPEN_DOOR" : "SCRIPT_COMMAND_CLOSE_DOOR"),tmp.id);
+                    sLog.outErrorDb("Table `%s` has gameobject with invalid entry (GUID: %u Entry: %u) in %s for script id %u",
+                        tableName.c_str(), tmp.ToggleDoor.GOGuid, data->id, GetScriptCommandName(tmp.command).c_str(), tmp.id);
                     continue;
                 }
 
                 if (info->type != GAMEOBJECT_TYPE_DOOR)
                 {
-                    sLog.outErrorDb("Table %s has gameobject type (%u) non supported by command %s for script id %u",tablename,info->id,(tmp.command == SCRIPT_COMMAND_OPEN_DOOR ? "SCRIPT_COMMAND_OPEN_DOOR" : "SCRIPT_COMMAND_CLOSE_DOOR"),tmp.id);
-                    continue;
-                }
-
-                break;
-            }
-            case SCRIPT_COMMAND_QUEST_EXPLORED:
-            {
-                Quest const* quest = GetQuestTemplate(tmp.datalong);
-                if (!quest)
-                {
-                    sLog.outErrorDb("Table %s has invalid quest (ID: %u) in SCRIPT_COMMAND_QUEST_EXPLORED in datalong for script id %u",tablename,tmp.datalong,tmp.id);
-                    continue;
-                }
-
-                if (!quest->HasFlag(QUEST_OREGON_FLAGS_EXPLORATION_OR_EVENT))
-                {
-                    sLog.outErrorDb("Table %s has quest (ID: %u) in SCRIPT_COMMAND_QUEST_EXPLORED in datalong for script id %u, but quest does not have flag QUEST_OREGON_FLAGS_EXPLORATION_OR_EVENT in quest flags. Script command or quest flags wrong. Quest modified to require objective.",tablename,tmp.datalong,tmp.id);
-
-                    // this will prevent quest completing without objective
-                    const_cast<Quest*>(quest)->SetFlag(QUEST_OREGON_FLAGS_EXPLORATION_OR_EVENT);
-
-                    // continue; - quest objective requirement set and command can be allowed
-                }
-
-                if (float(tmp.datalong2) > DEFAULT_VISIBILITY_DISTANCE)
-                {
-                    sLog.outErrorDb("Table %s has too large distance (%u) for exploring objective complete in datalong2 in SCRIPT_COMMAND_QUEST_EXPLORED in datalong for script id %u",
-                        tablename,tmp.datalong2,tmp.id);
-                    continue;
-                }
-
-                if (tmp.datalong2 && float(tmp.datalong2) > DEFAULT_VISIBILITY_DISTANCE)
-                {
-                    sLog.outErrorDb("Table %s has too large distance (%u) for exploring objective complete in datalong2 in SCRIPT_COMMAND_QUEST_EXPLORED in datalong for script id %u, max distance is %f or 0 for disable distance check",
-                        tablename,tmp.datalong2,tmp.id,DEFAULT_VISIBILITY_DISTANCE);
-                    continue;
-                }
-
-                if (tmp.datalong2 && float(tmp.datalong2) < INTERACTION_DISTANCE)
-                {
-                    sLog.outErrorDb("Table %s has too small distance (%u) for exploring objective complete in datalong2 in SCRIPT_COMMAND_QUEST_EXPLORED in datalong for script id %u, min distance is %f or 0 for disable distance check",
-                        tablename,tmp.datalong2,tmp.id,INTERACTION_DISTANCE);
+                    sLog.outErrorDb("Table `%s` has gameobject type (%u) non supported by command %s for script id %u",
+                        tableName.c_str(), info->id, GetScriptCommandName(tmp.command).c_str(), tmp.id);
                     continue;
                 }
 
@@ -3749,24 +3900,77 @@ void ObjectMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
             }
 
             case SCRIPT_COMMAND_REMOVE_AURA:
-            case SCRIPT_COMMAND_CAST_SPELL:
             {
-                if (!sSpellStore.LookupEntry(tmp.datalong))
+                if (!sSpellStore.LookupEntry(tmp.RemoveAura.SpellID))
                 {
-                    sLog.outErrorDb("Table %s using non-existent spell (id: %u) in SCRIPT_COMMAND_REMOVE_AURA or SCRIPT_COMMAND_CAST_SPELL for script id %u",
-                        tablename,tmp.datalong,tmp.id);
+                    sLog.outErrorDb("Table `%s` using non-existent spell (id: %u) in SCRIPT_COMMAND_REMOVE_AURA for script id %u",
+                        tableName.c_str(), tmp.RemoveAura.SpellID, tmp.id);
+                    continue;
+                }
+                if (tmp.RemoveAura.Flags & ~0x1)                    // 1 bits (0,1)
+                {
+                    sLog.outErrorDb("Table `%s` using unknown flags in datalong2 (%u) in SCRIPT_COMMAND_REMOVE_AURA for script id %u",
+                        tableName.c_str(), tmp.RemoveAura.Flags, tmp.id);
                     continue;
                 }
                 break;
             }
+
+            case SCRIPT_COMMAND_CAST_SPELL:
+            {
+                if (!sSpellStore.LookupEntry(tmp.CastSpell.SpellID))
+                {
+                    sLog.outErrorDb("Table `%s` using non-existent spell (id: %u) in SCRIPT_COMMAND_CAST_SPELL for script id %u",
+                        tableName.c_str(), tmp.CastSpell.SpellID, tmp.id);
+                    continue;
+                }
+                if (tmp.CastSpell.Flags > 4)                      // targeting type
+                {
+                    sLog.outErrorDb("Table `%s` using unknown target in datalong2 (%u) in SCRIPT_COMMAND_CAST_SPELL for script id %u",
+                        tableName.c_str(), tmp.CastSpell.Flags, tmp.id);
+                    continue;
+                }
+                if (tmp.CastSpell.Flags != 4 && tmp.CastSpell.CreatureEntry & ~0x1)                      // 1 bit (0,1)
+                {
+                    sLog.outErrorDb("Table `%s` using unknown flags in dataint (%u) in SCRIPT_COMMAND_CAST_SPELL for script id %u",
+                        tableName.c_str(), tmp.CastSpell.CreatureEntry, tmp.id);
+                    continue;
+                }
+                else if (tmp.CastSpell.Flags == 4 && !GetCreatureTemplate(tmp.CastSpell.CreatureEntry))
+                {
+                    sLog.outErrorDb("Table `%s` using invalid creature entry in dataint (%u) in SCRIPT_COMMAND_CAST_SPELL for script id %u",
+                        tableName.c_str(), tmp.CastSpell.CreatureEntry, tmp.id);
+                    continue;
+                }
+                break;
+            }
+
+            case SCRIPT_COMMAND_CREATE_ITEM:
+            {
+                if (!GetItemPrototype(tmp.CreateItem.ItemEntry))
+                {
+                    sLog.outErrorDb("Table `%s` has nonexistent item (entry: %u) in SCRIPT_COMMAND_CREATE_ITEM for script id %u",
+                        tableName.c_str(), tmp.CreateItem.ItemEntry, tmp.id);
+                    continue;
+                }
+                if (!tmp.CreateItem.Amount)
+                {
+                    sLog.outErrorDb("Table `%s` SCRIPT_COMMAND_CREATE_ITEM but amount is %u for script id %u",
+                        tableName.c_str(), tmp.CreateItem.Amount, tmp.id);
+                    continue;
+                }
+                break;
+            }
+            default:
+                break;
         }
 
-        if (scripts.find(tmp.id) == scripts.end())
+        if (scripts->find(tmp.id) == scripts->end())
         {
             ScriptMap emptyMap;
-            scripts[tmp.id] = emptyMap;
+            (*scripts)[tmp.id] = emptyMap;
         }
-        scripts[tmp.id].insert(std::pair<uint32, ScriptInfo>(tmp.delay, tmp));
+        (*scripts)[tmp.id].insert(std::pair<uint32, ScriptInfo>(tmp.delay, tmp));
 
         ++count;
     } while (result->NextRow());
@@ -3777,43 +3981,43 @@ void ObjectMgr::LoadScripts(ScriptMapMap& scripts, char const* tablename)
 
 void ObjectMgr::LoadGameObjectScripts()
 {
-    LoadScripts(sGameObjectScripts,    "gameobject_scripts");
+    LoadScripts(SCRIPTS_GAMEOBJECT);
 
     // check ids
     for (ScriptMapMap::const_iterator itr = sGameObjectScripts.begin(); itr != sGameObjectScripts.end(); ++itr)
     {
         if (!GetGOData(itr->first))
-            sLog.outErrorDb("Table gameobject_scripts has invalid gameobject (GUID: %u) as script id",itr->first);
+            sLog.outErrorDb("Table `gameobject_scripts` has not existing gameobject (GUID: %u) as script id",itr->first);
     }
 }
 
 void ObjectMgr::LoadQuestEndScripts()
 {
-    LoadScripts(sQuestEndScripts,  "quest_end_scripts");
+    LoadScripts(SCRIPTS_QUEST_END);
 
     // check ids
     for (ScriptMapMap::const_iterator itr = sQuestEndScripts.begin(); itr != sQuestEndScripts.end(); ++itr)
     {
         if (!GetQuestTemplate(itr->first))
-            sLog.outErrorDb("Table quest_end_scripts has invalid quest (Id: %u) as script id",itr->first);
+            sLog.outErrorDb("Table `quest_end_scripts` has not existing quest (Id: %u) as script id",itr->first);
     }
 }
 
 void ObjectMgr::LoadQuestStartScripts()
 {
-    LoadScripts(sQuestStartScripts,"quest_start_scripts");
+    LoadScripts(SCRIPTS_QUEST_START);
 
     // check ids
     for (ScriptMapMap::const_iterator itr = sQuestStartScripts.begin(); itr != sQuestStartScripts.end(); ++itr)
     {
         if (!GetQuestTemplate(itr->first))
-            sLog.outErrorDb("Table quest_start_scripts has invalid quest (Id: %u) as script id",itr->first);
+            sLog.outErrorDb("Table `quest_start_scripts` has not existing quest (Id: %u) as script id",itr->first);
     }
 }
 
 void ObjectMgr::LoadSpellScripts()
 {
-    LoadScripts(sSpellScripts, "spell_scripts");
+    LoadScripts(SCRIPTS_SPELL);
 
     // check ids
     for (ScriptMapMap::const_iterator itr = sSpellScripts.begin(); itr != sSpellScripts.end(); ++itr)
@@ -3822,7 +4026,7 @@ void ObjectMgr::LoadSpellScripts()
 
         if (!spellInfo)
         {
-            sLog.outErrorDb("Table spell_scripts has invalid spell (Id: %u) as script id",itr->first);
+            sLog.outErrorDb("Table `spell_scripts` has not existing spell (Id: %u) as script id", itr->first);
             continue;
         }
 
@@ -3848,7 +4052,7 @@ void ObjectMgr::LoadSpellScripts()
 
 void ObjectMgr::LoadEventScripts()
 {
-    LoadScripts(sEventScripts, "event_scripts");
+    LoadScripts(SCRIPTS_EVENT);
 
     std::set<uint32> evt_scripts;
     // Load all possible script entries from gameobjects
@@ -3867,6 +4071,9 @@ void ObjectMgr::LoadEventScripts()
                     if (goInfo->chest.eventId)
                         evt_scripts.insert(goInfo->chest.eventId);
                     break;
+                case GAMEOBJECT_TYPE_CAMERA:
+                    if (goInfo->camera.eventID)
+                        evt_scripts.insert(goInfo->camera.eventID);
                 default:
                     break;
             }
@@ -3878,7 +4085,7 @@ void ObjectMgr::LoadEventScripts()
         SpellEntry const * spell = sSpellStore.LookupEntry(i);
         if (spell)
         {
-            for (int j=0; j<3; ++j)
+            for (uint8 j=0; j<3; ++j)
             {
                 if (spell->Effect[j] == SPELL_EFFECT_SEND_EVENT)
                 {
@@ -3888,19 +4095,21 @@ void ObjectMgr::LoadEventScripts()
             }
         }
     }
+
     // Then check if all scripts are in above list of possible script entries
     for (ScriptMapMap::const_iterator itr = sEventScripts.begin(); itr != sEventScripts.end(); ++itr)
     {
         std::set<uint32>::const_iterator itr2 = evt_scripts.find(itr->first);
         if (itr2 == evt_scripts.end())
-            sLog.outErrorDb("Table event_scripts has script (Id: %u) not referring to any gameobject_template type 10 data2 field or type 3 data6 field or any spell effect %u", itr->first, SPELL_EFFECT_SEND_EVENT);
+            sLog.outErrorDb("Table `event_scripts` has script (Id: %u) not referring to any gameobject_template type 10 data2 field, type 3 data6 field, type 13 data 2 field or any spell effect %u",
+                itr->first, SPELL_EFFECT_SEND_EVENT);
     }
 }
 
 //Load WP Scripts
 void ObjectMgr::LoadWaypointScripts()
 {
-    LoadScripts(sWaypointScripts, "waypoint_scripts");
+    LoadScripts(SCRIPTS_WAYPOINT);
 
     for (ScriptMapMap::const_iterator itr = sWaypointScripts.begin(); itr != sWaypointScripts.end(); ++itr)
     {
@@ -3912,7 +4121,7 @@ void ObjectMgr::LoadWaypointScripts()
 
 void ObjectMgr::LoadGossipScripts()
 {
-    LoadScripts(sGossipScripts, "gossip_scripts");
+    LoadScripts(SCRIPTS_GOSSIP);
 
     // checks are done in LoadGossipMenuItems
 }
@@ -7426,19 +7635,27 @@ uint32 ObjectMgr::GetScriptId(const char *name)
     return itr - m_scriptNames.begin();
 }
 
-void ObjectMgr::CheckScripts(ScriptMapMap const& scripts,std::set<int32>& ids)
+void ObjectMgr::CheckScripts(ScriptsType type, std::set<int32>& ids)
 {
-    for (ScriptMapMap::const_iterator itrMM = scripts.begin(); itrMM != scripts.end(); ++itrMM)
+    ScriptMapMap *scripts = GetScriptsMapByType(type);
+    if (!scripts)
+        return;
+    for (ScriptMapMap::const_iterator itrMM = scripts->begin(); itrMM != scripts->end(); ++itrMM)
     {
         for (ScriptMap::const_iterator itrM = itrMM->second.begin(); itrM != itrMM->second.end(); ++itrM)
         {
-            if (itrM->second.dataint)
+            switch(itrM->second.command)
             {
-                if (!GetOregonStringLocale (itrM->second.dataint))
-                    sLog.outErrorDb("Table db_script_string has invalid string id  %u", itrM->first);
+                case SCRIPT_COMMAND_TALK:
+                {
+                    if (!GetOregonStringLocale (itrM->second.Talk.TextID))
+                        sLog.outErrorDb("Table `db_script_string` not has string id  %u used db script (ID: %u)", itrM->second.Talk.TextID, itrMM->first);
 
-                if (ids.count(itrM->second.dataint))
-                    ids.erase(itrM->second.dataint);
+                    if (ids.find(itrM->second.Talk.TextID) != ids.end())
+                        ids.erase(itrM->second.Talk.TextID);
+                }
+                default:
+                    break;
             }
         }
     }
@@ -7454,16 +7671,11 @@ void ObjectMgr::LoadDbScriptStrings()
         if (GetOregonStringLocale(i))
             ids.insert(i);
 
-    CheckScripts(sQuestEndScripts,ids);
-    CheckScripts(sQuestStartScripts,ids);
-    CheckScripts(sSpellScripts,ids);
-    CheckScripts(sGameObjectScripts,ids);
-    CheckScripts(sEventScripts,ids);
-
-    CheckScripts(sWaypointScripts,ids);
+    for (int type = SCRIPTS_FIRST; type < SCRIPTS_LAST; ++type)
+        CheckScripts(ScriptsType(type), ids);
 
     for (std::set<int32>::const_iterator itr = ids.begin(); itr != ids.end(); ++itr)
-        sLog.outErrorDb("Table db_script_string has unused string id  %u", *itr);
+        sLog.outErrorDb("Table `db_script_string` has unused string id  %u", *itr);
 }
 
 // Functions for scripting access

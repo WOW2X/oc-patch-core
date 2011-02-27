@@ -771,7 +771,7 @@ struct AccessRequirement
 enum CharDeleteMethod
 {
     CHAR_DELETE_REMOVE = 0,                      // Completely remove from the database
-    CHAR_DELETE_UNLINK = 1                       // The character gets unlinked from the account, 
+    CHAR_DELETE_UNLINK = 1                       // The character gets unlinked from the account,
                                                  // the name gets freed up and appears as deleted ingame
 };
 
@@ -907,6 +907,7 @@ class Player : public Unit, public GridObject<Player>
 
         Creature* GetNPCIfCanInteractWith(uint64 guid, uint32 npcflagmask);
         bool CanInteractWithNPCs(bool alive = true) const;
+        GameObject* GetGameObjectIfCanInteractWith(uint64 guid, GameobjectTypes type) const;
 
         bool ToggleAFK();
         bool ToggleDND();
@@ -990,7 +991,7 @@ class Player : public Unit, public GridObject<Player>
         /*********************************************************/
 
         void SetVirtualItemSlot(uint8 i, Item* item);
-        void SetSheath(uint32 sheathed);
+        void SetSheath(SheathState sheathed);             // overwrite Unit version
         uint8 FindEquipSlot(ItemPrototype const* proto, uint32 slot, bool swap) const;
         uint32 GetItemCount(uint32 item, bool inBankAlso = false, Item* skipItem = NULL) const;
         Item* GetItemByGuid(uint64 guid) const;
@@ -1208,7 +1209,8 @@ class Player : public Unit, public GridObject<Player>
         void GroupEventHappens(uint32 questId, WorldObject const* pEventObject);
         void ItemAddedQuestCheck(uint32 entry, uint32 count);
         void ItemRemovedQuestCheck(uint32 entry, uint32 count);
-        void KilledMonster(uint32 entry, uint64 guid);
+        void KilledMonster(CreatureInfo const* cInfo, uint64 guid);
+        void KilledMonsterCredit(uint32 entry, uint64 guid);
         void CastedCreatureOrGO(uint32 entry, uint64 guid, uint32 spell_id);
         void TalkedToCreature(uint32 entry, uint64 guid);
         void MoneyChanged(uint32 value);
@@ -1449,7 +1451,7 @@ class Player : public Unit, public GridObject<Player>
             m_resurrectZ = Z;
             m_resurrectHealth = health;
             m_resurrectMana = mana;
-        };
+        }
         void clearResurrectRequestData() { setResurrectRequestData(0,0,0.0f,0.0f,0.0f,0,0); }
         bool isRessurectRequestedBy(uint64 guid) const { return m_resurrectGUID == guid; }
         bool isRessurectRequested() const { return m_resurrectGUID != 0; }
@@ -1598,8 +1600,6 @@ class Player : public Unit, public GridObject<Player>
         void SendDelayResponse(const uint32);
         void SendLogXPGain(uint32 GivenXP,Unit* victim,uint32 RestXP);
 
-        //Low Level Packets
-        void PlaySound(uint32 Sound, bool OnlySelf);
         //notifiers
         void SendAttackSwingCantAttack();
         void SendAttackSwingCancelAttack();
@@ -2052,6 +2052,7 @@ class Player : public Unit, public GridObject<Player>
         uint32 GetOldPetSpell() const { return m_oldpetspell; }
         void SetOldPetSpell(uint32 petspell) { m_oldpetspell = petspell; }
 
+        void SendCinematicStart(uint32 CinematicSequenceId);
 
         /*********************************************************/
         /***                 INSTANCE SYSTEM                   ***/
@@ -2290,26 +2291,6 @@ class Player : public Unit, public GridObject<Player>
         float m_rest_bonus;
         RestType rest_type;
         ////////////////////Rest System/////////////////////
-
-        // movement anticheat
-        uint32 m_anti_lastmovetime;          // last movement time
-        uint64 m_anti_transportGUID;         // current transport GUID
-        float  m_anti_last_hspeed;           // horizontal speed, default RUN speed
-        uint32 m_anti_lastspeed_changetime;  // last speed change time
-        float  m_anti_last_vspeed;           // vertical speed, default max jump height
-        uint32 m_anti_beginfalltime;         // alternative falling begin time
-        bool m_anti_justteleported;          // seted when player was teleported
-        uint32 m_anti_teletoplane_count;     // Teleport To Plane alarm counter
-        bool m_anti_flymounted;              // seted when player is mounted on flymount
-        bool m_anti_wasflymounted;           // seted when player was mounted on flymount
-        bool m_anti_ontaxipath;              // seted when player is on a taxi fight
-        bool m_anti_isjumping;               // seted when player is in jump phase
-        bool m_anti_isknockedback;           // seted when player is knocked back
-
-        uint32 m_anti_justjumped;            // jump already began, anti-air jump check
-        uint64 m_anti_alarmcount;            // alarm counter
-        std::string m_anti_lastcheat;        // stores last cheat as string
-        float m_anti_jumpbase;               // Anti-Gravitation
 
         // Transports
         Transport * m_transport;

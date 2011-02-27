@@ -800,7 +800,8 @@ uint32 Unit::DealDamage(Unit *pVictim, uint32 damage, CleanDamage const* cleanDa
 
                 // some critters required for quests
                 if (GetTypeId() == TYPEID_PLAYER)
-                    ToPlayer()->KilledMonster(pVictim->GetEntry(),pVictim->GetGUID());
+                    if (CreatureInfo const* normalInfo = objmgr.GetCreatureTemplate(pVictim->GetEntry()))
+                        this->ToPlayer()->KilledMonster(normalInfo,pVictim->GetGUID());
             }
             else
                 pVictim->ModifyHealth(- (int32)damage);
@@ -6239,6 +6240,12 @@ bool Unit::HandleProcTriggerSpell(Unit *pVictim, uint32 damage, Aura* triggeredB
             trigger_spell_id = 30824;
             break;
         }
+        // Hunter: Expose Weakness
+        case 34501:
+        {
+            basepoints0 = int32(GetStat(STAT_AGILITY) *0.25);
+            break;
+        }
         // Enlightenment (trigger only from mana cost spells)
         case 35095:
         {
@@ -6988,7 +6995,7 @@ void Unit::SetMinion(Minion *minion, bool apply)
             }
         }
 
-        if (minion->HasSummonMask(SUMMON_MASK_GUARDIAN))
+        if (minion->HasSummonMask(SUMMON_MASK_CONTROLABLE_GUARDIAN))
             AddUInt64Value(UNIT_FIELD_SUMMON, minion->GetGUID());
     }
     else
@@ -7032,13 +7039,13 @@ void Unit::SetMinion(Minion *minion, bool apply)
                 ASSERT((*itr)->GetOwnerGUID() == GetGUID());
                 ASSERT((*itr)->GetTypeId() == TYPEID_UNIT);
 
-                if (!(*itr)->ToCreature()->HasSummonMask(SUMMON_MASK_GUARDIAN))
+                if (!(*itr)->ToCreature()->HasSummonMask(SUMMON_MASK_CONTROLABLE_GUARDIAN))
                     continue;
 
                 if (AddUInt64Value(UNIT_FIELD_SUMMON, (*itr)->GetGUID()))
                 {
                     //show another pet bar if there is no charm bar
-                    if (GetTypeId() == TYPEID_PLAYER && !GetCharmGUID() && (*itr)->ToCreature()->HasSummonMask(SUMMON_MASK_GUARDIAN))
+                    if (GetTypeId() == TYPEID_PLAYER && !GetCharmGUID())
                     {
                         if ((*itr)->ToCreature()->isPet())
                             ToPlayer()->PetSpellInitialize();
@@ -7692,16 +7699,8 @@ int32 Unit::SpellBaseDamageBonusForVictim(SpellSchoolMask schoolMask, Unit *pVic
     // ..taken
     AuraList const& mDamageTaken = pVictim->GetAurasByType(SPELL_AURA_MOD_DAMAGE_TAKEN);
     for (AuraList::const_iterator i = mDamageTaken.begin();i != mDamageTaken.end(); ++i)
-    {
         if (((*i)->GetModifier()->m_miscvalue & schoolMask) != 0)
             TakenAdvertisedBenefit += (*i)->GetModifierValue();
-
-            if ((*i)->GetId() == 34123)
-             {
-                 if ((*i)->GetCaster()->GetTypeId() == TYPEID_PLAYER)
-                 TakenAdvertisedBenefit += int32(0.25f * ((Player*)(*i)->GetCaster())->GetStat(STAT_SPIRIT));
-             }
-      }
 
     return TakenAdvertisedBenefit;
 }
@@ -8060,15 +8059,8 @@ int32 Unit::SpellBaseHealingBonusForVictim(SpellSchoolMask schoolMask, Unit *pVi
     int32 AdvertisedBenefit = 0;
     AuraList const& mDamageTaken = pVictim->GetAurasByType(SPELL_AURA_MOD_HEALING);
     for (AuraList::const_iterator i = mDamageTaken.begin();i != mDamageTaken.end(); ++i)
-    {
         if (((*i)->GetModifier()->m_miscvalue & schoolMask) != 0)
             AdvertisedBenefit += (*i)->GetModifierValue();
-        if ((*i)->GetId() == 34123)
-        {
-            if ((*i)->GetCaster()->GetTypeId() == TYPEID_PLAYER)
-            AdvertisedBenefit += int32(0.25f * ((Player*)(*i)->GetCaster())->GetStat(STAT_SPIRIT)) ;
-        }
-    }
     return AdvertisedBenefit;
 }
 
@@ -8453,7 +8445,7 @@ void Unit::Unmount()
         if (ToPlayer()->GetTemporaryUnsummonedPetNumber())
         {
             Pet* NewPet = new Pet(ToPlayer());
-            if (!NewPet->LoadPetFromDB(this, 0, ToPlayer()->GetTemporaryUnsummonedPetNumber(), true))
+            if (!NewPet->LoadPetFromDB(ToPlayer(), 0, ToPlayer()->GetTemporaryUnsummonedPetNumber(), true))
                 delete NewPet;
             ToPlayer()->SetTemporaryUnsummonedPetNumber(0);
         }
@@ -9111,8 +9103,8 @@ bool Unit::CanHaveThreatList() const
     if (ToCreature()->isTotem())
         return false;
 
-    // pets can not have a threat list, unless they are controlled by a creature
-    if (ToCreature()->isPet() && IS_PLAYER_GUID(((Pet*)this)->GetOwnerGUID()))
+    // summons can not have a threat list, unless they are controlled by a creature
+    if (ToCreature()->HasSummonMask(SUMMON_MASK_MINION | SUMMON_MASK_GUARDIAN | SUMMON_MASK_CONTROLABLE_GUARDIAN) && IS_PLAYER_GUID(((Pet*)this)->GetOwnerGUID()))
         return false;
 
     return true;
