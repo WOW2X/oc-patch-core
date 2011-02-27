@@ -487,8 +487,7 @@ void IRCCmd::Char_Player(_CDATA *CD)
                         {
                             if (CreatureInfo const* cInfo = objmgr.GetCreatureTemplate(creature))
                                 for (uint16 z = 0; z < creaturecount; ++z)
-                                    //plr->KilledMonster(cInfo,0);
-                                    plr->KilledMonster(creature,0);
+                                    plr->KilledMonster(cInfo,0);
                         }
                         else if (creature < 0)
                         {
