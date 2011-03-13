@@ -972,9 +972,7 @@ void Player::HandleDrowning(uint32 time_diff)
                 uint32 damage = urand(600, 700);
                 if (m_MirrorTimerFlags&UNDERWATER_INLAVA)
                     EnvironmentalDamage(DAMAGE_LAVA, damage);
-                // need to skip Slime damage in Undercity,
-                // maybe someone can find better way to handle environmental damage
-                else if (m_zoneUpdateId != 1497)
+                else
                     EnvironmentalDamage(DAMAGE_SLIME, damage);
             }
         }
@@ -1592,12 +1590,19 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
     else
         sLog.outDebug("Player %s is being teleported to map %u", GetName(), mapid);
 
-    // if we were on a transport, leave
-    if (!(options & TELE_TO_NOT_LEAVE_TRANSPORT) && m_transport)
+    // reset movement flags at teleport, because player will continue move with these flags after teleport
+    SetUnitMovementFlags(0);
+
+    if (m_transport)
     {
-        m_transport->RemovePassenger(this);
-        m_transport = NULL;
-        m_movementInfo.ClearTransportData();
+        if (options & TELE_TO_NOT_LEAVE_TRANSPORT)
+            AddUnitMovementFlag(MOVEFLAG_ONTRANSPORT);
+        else
+        {
+            m_transport->RemovePassenger(this);
+            m_transport = NULL;
+            m_movementInfo.ClearTransportData();
+        }
     }
 
     // The player was ported to another map and looses the duel immediately.
@@ -1605,9 +1610,6 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
     // ObjectAccessor won't find the flag.
     if (duel && GetMapId() != mapid && GetMap()->GetGameObject(GetUInt64Value(PLAYER_DUEL_ARBITER)))
         DuelComplete(DUEL_FLED);
-
-    // reset movement flags at teleport, because player will continue move with these flags after teleport
-    SetUnitMovementFlags(0);
 
     if (GetMapId() == mapid && !m_transport)
     {
@@ -6296,11 +6298,6 @@ void Player::RewardReputation(Quest const *pQuest)
     // TODO: implement reputation spillover
 }
 
-void Player::UpdateArenaFields(void)
-{
-    /* arena calcs go here */
-}
-
 void Player::UpdateHonorFields()
 {
     // called when rewarding honor and at each save
@@ -6680,19 +6677,8 @@ void Player::UpdateArea(uint32 newArea)
     m_areaUpdateId    = newArea;
 
     AreaTableEntry const* area = GetAreaEntryByAreaID(newArea);
-
-    if (area && (area->flags & AREA_FLAG_ARENA))
-    {
-        if (!isGameMaster())
-            SetFFAPvP(true);
-    }
-    else
-    {
-        // remove ffa flag only if not ffapvp realm
-        // removal in sanctuaries and capitals is handled in zone update
-        if (IsFFAPvP() && !sWorld.IsFFAPvPRealm())
-            SetFFAPvP(false);
-    }
+    pvpInfo.inFFAPvPArea = area && (area->flags & AREA_FLAG_ARENA);
+    UpdatePvPState(true);
 
     UpdateAreaDependentAuras(newArea);
 }
@@ -6721,9 +6707,7 @@ void Player::UpdateZone(uint32 newZone)
     {
         Weather *wth = sWorld.FindWeather(zone->ID);
         if (wth)
-        {
             wth->SendWeatherUpdateToPlayer(this);
-        }
         else
         {
             if (!sWorld.AddWeather(zone->ID))
@@ -6734,69 +6718,62 @@ void Player::UpdateZone(uint32 newZone)
         }
     }
 
-    pvpInfo.inHostileArea =
-        GetTeam() == ALLIANCE && zone->team == AREATEAM_HORDE ||
-        GetTeam() == HORDE    && zone->team == AREATEAM_ALLY  ||
-        sWorld.IsPvPRealm()   && zone->team == AREATEAM_NONE  ||
-        InBattleGround();                                   // overwrite for battlegrounds, maybe batter some zone flags but current known not 100% fit to this
-
-    if (pvpInfo.inHostileArea)                               // in hostile area
+    // in PvP, any not controlled zone (except zone->team == 6, default case)
+    // in PvE, only opposition team capital
+    switch (zone->team)
     {
-        if (!IsPvP() || pvpInfo.endTimer != 0)
-            UpdatePvP(true, true);
-    }
-    else                                                    // in friendly area
-    {
-        if (IsPvP() && !HasFlag(PLAYER_FLAGS,PLAYER_FLAGS_IN_PVP) && pvpInfo.endTimer == 0)
-            pvpInfo.endTimer = time(0);                     // start toggle-off
+        case AREATEAM_ALLY:
+            pvpInfo.inHostileArea = GetTeam() != ALLIANCE && (sWorld.IsPvPRealm() || zone->flags & AREA_FLAG_CAPITAL);
+            break;
+        case AREATEAM_HORDE:
+            pvpInfo.inHostileArea = GetTeam() != HORDE && (sWorld.IsPvPRealm() || zone->flags & AREA_FLAG_CAPITAL);
+            break;
+        case AREATEAM_NONE:
+            // overwrite for battlegrounds, maybe batter some zone flags but current known not 100% fit to this
+            pvpInfo.inHostileArea = sWorld.IsPvPRealm() || InBattleGround();
+            break;
+        default:                                            // 6 in fact
+            pvpInfo.inHostileArea = false;
+            break;
     }
 
+    pvpInfo.inNoPvPArea = false;
     if (zone->flags & AREA_FLAG_SANCTUARY)                   // in sanctuary
     {
         SetFlag(PLAYER_FLAGS, PLAYER_FLAGS_SANCTUARY);
-        if (sWorld.IsFFAPvPRealm())
-            SetFFAPvP(false);
+        pvpInfo.inNoPvPArea = true;
     }
     else
-    {
         RemoveFlag(PLAYER_FLAGS, PLAYER_FLAGS_SANCTUARY);
-    }
 
     if (zone->flags & AREA_FLAG_CAPITAL)                     // in capital city
     {
         SetFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING);
         SetRestType(REST_TYPE_IN_CITY);
         InnEnter(time(0),GetMapId(),0,0,0);
-
-        if (sWorld.IsFFAPvPRealm())
-            SetFFAPvP(false);
+        pvpInfo.inNoPvPArea = true;
     }
     else                                                    // anywhere else
     {
         if (HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING))     // but resting (walk from city or maybe in tavern or leave tavern recently)
         {
-            if (GetRestType() == REST_TYPE_IN_TAVERN)          // has been in tavern. Is still in?
+            if (GetRestType() == REST_TYPE_IN_TAVERN)        // has been in tavern. Is still in?
             {
                 if (GetMapId() != GetInnPosMapId() || sqrt((GetPositionX()-GetInnPosX())*(GetPositionX()-GetInnPosX())+(GetPositionY()-GetInnPosY())*(GetPositionY()-GetInnPosY())+(GetPositionZ()-GetInnPosZ())*(GetPositionZ()-GetInnPosZ()))>40)
                 {
                     RemoveFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING);
                     SetRestType(REST_TYPE_NO);
-
-                    if (sWorld.IsFFAPvPRealm())
-                        SetFFAPvP(true);
                 }
             }
             else                                            // not in tavern (leave city then)
             {
                 RemoveFlag(PLAYER_FLAGS, PLAYER_FLAGS_RESTING);
                 SetRestType(REST_TYPE_NO);
-
-                // Set player to FFA PVP when not in rested environment.
-                if (sWorld.IsFFAPvPRealm())
-                    SetFFAPvP(true);
             }
         }
     }
+
+    UpdatePvPState();
 
     // remove items with area/map limitations (delete only for alive player to allow back in ghost mode)
     // if player resurrected at teleport this will be applied in resurrect code
@@ -18472,16 +18449,46 @@ void Player::UpdateHomebindTime(uint32 time)
     }
 }
 
-void Player::UpdatePvP(bool state, bool ovrride)
+void Player::UpdatePvPState(bool onlyFFA)
 {
-    if (!state || ovrride)
+    // TODO: should we always synchronize UNIT_FIELD_BYTES_2, 1 of controller and controlled?
+    if (!pvpInfo.inNoPvPArea && !isGameMaster()
+        && (pvpInfo.inFFAPvPArea || sWorld.IsFFAPvPRealm()))
+    {
+        if (!IsFFAPvP())
+        {
+            SetFFAPvP(true);
+            for (ControlList::iterator itr = m_Controlled.begin(); itr != m_Controlled.end(); ++itr)
+                (*itr)->SetPvP(true);
+        }
+    }
+    else if (IsFFAPvP())
+    {
+        SetFFAPvP(false);
+        for (ControlList::iterator itr = m_Controlled.begin(); itr != m_Controlled.end(); ++itr)
+            (*itr)->SetPvP(false);
+    }
+
+    if (onlyFFA)
+        return;
+
+    if (pvpInfo.inHostileArea)                               // in hostile area
+    {
+        if (!IsPvP() || pvpInfo.endTimer != 0)
+            UpdatePvP(true, true);
+    }
+    else                                                    // in friendly area
+    {
+        if (IsPvP() && !IsFFAPvP() && pvpInfo.endTimer == 0)
+            pvpInfo.endTimer = time(0);                     // start toggle-off
+    }
+}
+
+void Player::UpdatePvP(bool state, bool override)
+{
+    if (!state || override)
     {
         SetPvP(state);
-        if (Pet* pet = GetPet())
-            pet->SetPvP(state);
-        if (Unit* charmed = GetCharm())
-            charmed->SetPvP(state);
-
         pvpInfo.endTimer = 0;
     }
     else
@@ -18489,14 +18496,7 @@ void Player::UpdatePvP(bool state, bool ovrride)
         if (pvpInfo.endTimer != 0)
             pvpInfo.endTimer = time(NULL);
         else
-        {
             SetPvP(state);
-
-            if (Pet* pet = GetPet())
-                pet->SetPvP(state);
-            if (Unit* charmed = GetCharm())
-                charmed->SetPvP(state);
-        }
     }
 }
 
@@ -18824,8 +18824,8 @@ bool Player::canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList, bool
         return false;
 
     // forbidden to seen (at GM respawn command)
-    if (u->GetVisibility() == VISIBILITY_RESPAWN)
-        return false;
+    //if (u->GetVisibility() == VISIBILITY_RESPAWN)
+    //    return false;
 
     Map& _map = *u->GetMap();
     // Grid dead/alive checks
@@ -19260,10 +19260,6 @@ void Player::SendInitialPacketsBeforeAddToMap()
     data << uint32(secsToTimeBitFields(sWorld.GetGameTime()));
     data << (float)0.01666667f;                             // game speed
     GetSession()->SendPacket(&data);
-
-    // set fly flag if in fly form or taxi flight to prevent visually drop at ground in showup moment
-    if (HasAuraType(SPELL_AURA_MOD_FLIGHT_SPEED_MOUNTED) || isInFlight())
-        AddUnitMovementFlag(MOVEFLAG_FLYING2);
 }
 
 void Player::SendInitialPacketsAfterAddToMap()
@@ -20708,17 +20704,13 @@ void Player::RemoveGlobalCooldown(SpellEntry const *spellInfo)
 
 void Player::BuildTeleportAckMsg(WorldPacket *data, float x, float y, float z, float ang) const
 {
+    MovementInfo mi = m_movementInfo;
+    mi.ChangePosition(x, y, z, ang);
+
     data->Initialize(MSG_MOVE_TELEPORT_ACK, 41);
     *data << GetPackGUID();
     *data << uint32(0);                                     // this value increments every time
-    *data << uint32(GetUnitMovementFlags());                // movement flags
-    *data << uint8(0);                                      // 2.3.0
-    *data << uint32(getMSTime());                           // time
-    *data << x;
-    *data << y;
-    *data << z;
-    *data << ang;
-    *data << uint32(0);
+    *data << mi;
 }
 
 void Player::ResetTimeSync()

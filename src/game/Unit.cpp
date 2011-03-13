@@ -1715,11 +1715,12 @@ void Unit::DealMeleeDamage(CalcDamageInfo *damageInfo, bool durabilityLoss)
                //CalcAbsorbResist(pVictim, SpellSchools(spellProto->School), SPELL_DIRECT_DAMAGE, damage, &absorb, &resist);
                //damage-=absorb + resist;
 
-               WorldPacket data(SMSG_SPELLDAMAGESHIELD,(8+8+4+4));
+               WorldPacket data(SMSG_SPELLDAMAGESHIELD,(8+8+4+4+4));
                data << uint64(pVictim->GetGUID());
                data << uint64(GetGUID());
+               data << uint32(spellProto->Id);
+               data << uint32(damage);                  // Damage
                data << uint32(spellProto->SchoolMask);
-               data << uint32(damage);
                pVictim->SendMessageToSet(&data, true);
 
                pVictim->DealDamage(this, damage, 0, SPELL_DIRECT_DAMAGE, GetSpellSchoolMask(spellProto), spellProto, true);
@@ -6997,6 +6998,9 @@ void Unit::SetMinion(Minion *minion, bool apply)
 
         if (minion->HasSummonMask(SUMMON_MASK_CONTROLABLE_GUARDIAN))
             AddUInt64Value(UNIT_FIELD_SUMMON, minion->GetGUID());
+
+        // PvP, FFAPvP
+        minion->SetByteValue(UNIT_FIELD_BYTES_2, 1, GetByteValue(UNIT_FIELD_BYTES_2, 1));
     }
     else
     {
@@ -7082,12 +7086,23 @@ void Unit::SetCharm(Unit* charm, bool apply)
                 sLog.outCrash("Player %s is trying to charm unit %u, but it already has a charmed unit %u", GetName(), charm->GetEntry(), GetCharmGUID());
 
             charm->m_ControlledByPlayer = true;
+            // TODO: maybe we can use this flag to check if controlled by player
+            charm->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
         }
         else
             charm->m_ControlledByPlayer = false;
 
+        // PvP, FFAPvP
+        charm->SetByteValue(UNIT_FIELD_BYTES_2, 1, GetByteValue(UNIT_FIELD_BYTES_2, 1));
+
         if (!charm->AddUInt64Value(UNIT_FIELD_CHARMEDBY, GetGUID()))
             sLog.outCrash("Unit %u is being charmed, but it already has a charmer %u", charm->GetEntry(), charm->GetCharmerGUID());
+
+        if (charm->HasUnitMovementFlag(MOVEFLAG_WALK_MODE))
+        {
+            charm->RemoveUnitMovementFlag(MOVEFLAG_WALK_MODE);
+            charm->SendMovementFlagUpdate();
+        }
 
         m_Controlled.insert(charm);
     }
@@ -7099,13 +7114,27 @@ void Unit::SetCharm(Unit* charm, bool apply)
                 sLog.outCrash("Player %s is trying to uncharm unit %u, but it has another charmed unit %u", GetName(), charm->GetEntry(), GetCharmGUID());
         }
 
-        if (charm->GetTypeId() == TYPEID_PLAYER || IS_PLAYER_GUID(charm->GetOwnerGUID()))
-            charm->m_ControlledByPlayer = true;
-        else
-            charm->m_ControlledByPlayer = false;
-
         if (!charm->RemoveUInt64Value(UNIT_FIELD_CHARMEDBY, GetGUID()))
             sLog.outCrash("Unit %u is being uncharmed, but it has another charmer %u", charm->GetEntry(), charm->GetCharmerGUID());
+
+        if (charm->GetTypeId() == TYPEID_PLAYER)
+        {
+            charm->m_ControlledByPlayer = true;
+            charm->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+            charm->ToPlayer()->UpdatePvPState();
+        }
+        else if (Player *player = charm->GetCharmerOrOwnerPlayerOrPlayerItself())
+        {
+            charm->m_ControlledByPlayer = true;
+            charm->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+            charm->SetByteValue(UNIT_FIELD_BYTES_2, 1, player->GetByteValue(UNIT_FIELD_BYTES_2, 1));
+        }
+        else
+        {
+            charm->m_ControlledByPlayer = false;
+            charm->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
+            charm->SetByteValue(UNIT_FIELD_BYTES_2, 1, 0);
+        }
 
         if (charm->GetTypeId() == TYPEID_PLAYER
             || !charm->ToCreature()->HasSummonMask(SUMMON_MASK_MINION)
@@ -9055,14 +9084,14 @@ void Unit::setDeathState(DeathState s)
 
         if (IsNonMeleeSpellCasted(false))
             InterruptNonMeleeSpells(false);
+
+        UnsummonAllTotems();
+        RemoveAllControlled();
+        RemoveAllAurasOnDeath();
     }
 
     if (s == JUST_DIED)
     {
-        UnsummonAllTotems();
-        RemoveAllControlled();
-        RemoveAllAurasOnDeath();
-
         ModifyAuraState(AURA_STATE_HEALTHLESS_20_PERCENT, false);
         ModifyAuraState(AURA_STATE_HEALTHLESS_35_PERCENT, false);
         // remove aurastates allowing special moves
@@ -11691,7 +11720,7 @@ void Unit::SetStunned(bool apply)
         if (GetTypeId() != TYPEID_PLAYER)
             ToCreature()->StopMoving();
         else
-            SetUnitMovementFlags(0);    //Clear movement flags
+            SetStandState(UNIT_STAND_STATE_STAND);
 
         WorldPacket data(SMSG_FORCE_MOVE_ROOT, 8);
         data << GetPackGUID();
@@ -11727,8 +11756,6 @@ void Unit::SetRooted(bool apply)
 
         if (GetTypeId() == TYPEID_PLAYER)
         {
-            SetUnitMovementFlags(0);
-
             WorldPacket data(SMSG_FORCE_MOVE_ROOT, 10);
             data << GetPackGUID();
             data << (uint32)2;
@@ -11822,8 +11849,6 @@ void Unit::SetCharmedBy(Unit* charmer, CharmType type)
         sLog.outCrash("Unit::SetCharmedBy: Player on transport is trying to charm %u", GetEntry());
         return;
     }
-
-    RemoveUnitMovementFlag(MOVEFLAG_WALK_MODE);
     CastStop();
     CombatStop(); //TODO: CombatStop(true) may cause crash (interrupt spells)
     DeleteThreatList();
@@ -11851,7 +11876,6 @@ void Unit::SetCharmedBy(Unit* charmer, CharmType type)
 
     // Set charmed
     setFaction(charmer->getFaction());
-    SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
     charmer->SetCharm(this, true);
 
     if (GetTypeId() == TYPEID_UNIT)
