@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2008 Trinity <http://www.trinitycore.org/>
  *
- * Copyright (C) 2010 Oregon <http://www.oregoncore.com/>
+ * Copyright (C) 2010-2011 Oregon <http://www.oregoncore.com/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -288,6 +288,7 @@ struct CreatureDataAddon
     uint32 bytes2;
     uint32 emote;
     uint32 move_flags;
+    uint32 isActive;
     CreatureDataAddonAura const* auras;                     // loaded as char* "spell1 eff1 spell2 eff2 ... "
 };
 
@@ -589,7 +590,7 @@ class Creature : public Unit, public GridObject<Creature>
 
         bool IsVisibleInGridForPlayer(Player const* pl) const;
 
-        void RemoveCorpse();
+        void RemoveCorpse(bool setSpawnTime = true);
         void ForcedDespawn(uint32 timeMSToDespawn = 0);
 
         time_t const& GetRespawnTime() const { return m_respawnTime; }
@@ -674,7 +675,7 @@ class Creature : public Unit, public GridObject<Creature>
         uint64 m_lootRecipient;
 
         // Timers
-        uint32 m_deathTimer;                                // (msecs)timer for death or corpse disappearance
+        uint32 m_corpseRemoveTime;                          // (msecs)timer for death or corpse disappearance
         time_t m_respawnTime;                               // (secs) time of next respawn
         uint32 m_respawnDelay;                              // (secs) delay between corpse disappearance and respawning
         uint32 m_corpseDelay;                               // (secs) delay between death and corpse disappearance

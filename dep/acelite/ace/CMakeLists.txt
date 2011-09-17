@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2010 Trinity <http://www.trinitycore.org/>
+# Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
 #
 # This file is free software; as a special exception the author gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -322,6 +322,7 @@ set(ace_STAT_SRCS
 include_directories(
   ${CMAKE_SOURCE_DIR}/dep/acelite
   ${CMAKE_CURRENT_SOURCE_DIR}/PrecompiledHeaders
+  ${CMAKE_SOURCE_DIR}/dep/zlib
 )
 
 # Needed for PCH support

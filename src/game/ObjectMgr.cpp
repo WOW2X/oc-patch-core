@@ -4289,7 +4289,7 @@ void ObjectMgr::LoadInstanceTemplate()
             {
                 temp->reset_delay = entry->resetTimeHeroic / DAY;
             }
-            else if (entry->resetTimeRaid && entry->map_type == MAP_RAID)
+            else if (entry->resetTimeRaid && entry->IsRaid())
             {
                 temp->reset_delay = entry->resetTimeRaid / DAY;
             }
@@ -7301,7 +7301,7 @@ void ObjectMgr::LoadGossipMenu()
         bar.step();
 
         sLog.outString();
-        sLog.outErrorDb(">> Loaded gossip_menu, table is empty!");
+        sLog.outDebug(">> Loaded gossip_menu, table is empty!");
         return;
     }
 

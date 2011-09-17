@@ -2,6 +2,8 @@
 -- Table structure for table `autobroadcast`
 --
 
+DROP TABLE `autobroadcast`;
+
 CREATE TABLE IF NOT EXISTS `autobroadcast` (
   `id` int(11) NOT NULL auto_increment,
   `message` longtext NOT NULL,

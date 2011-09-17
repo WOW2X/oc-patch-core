@@ -21,11 +21,44 @@
 
 #include "Util.h"
 
-#include "sockets/socket_include.h"
-#include "utf8cpp/utf8.h"
-#include "mersennetwister/MersenneTwister.h"
+#include "utf8.h"
+#ifdef USE_SFMT_FOR_RNG
+#include "SFMT.h"
+#else
+#include "MersenneTwister.h"
+#endif  // USE_SFMT
 #include <ace/TSS_T.h>
+#include <ace/INET_Addr.h>
 
+#ifdef USE_SFMT_FOR_RNG
+typedef ACE_TSS<SFMTRand> SFMTRandTSS;
+static SFMTRandTSS sfmtRand;
+
+int32 irand (int32 min, int32 max)
+{
+    return int32(sfmtRand->IRandom(min, max));
+}
+
+uint32 urand (uint32 min, uint32 max)
+{
+    return sfmtRand->URandom(min, max);
+}
+
+int32 rand32 ()
+{
+    return int32(sfmtRand->BRandom());
+}
+
+double rand_norm(void)
+{
+    return sfmtRand->Random();
+}
+
+double rand_chance (void)
+{
+    return sfmtRand->Random() * 100.0;
+}
+#else
 typedef ACE_TSS<MTRand> MTRandTSS;
 static MTRandTSS mtRand;
 
@@ -53,6 +86,7 @@ double rand_chance (void)
 {
     return mtRand->randExc (100.0);
 }
+#endif  // USE_SFMT_FOR_RNG
 
 Tokens StrSplit(const std::string &src, const std::string &sep)
 {
@@ -423,3 +457,21 @@ bool Utf8FitTo(const std::string& str, std::wstring search)
     return true;
 }
 
+void hexEncodeByteArray(uint8* bytes, uint32 arrayLen, std::string& result)
+{
+    std::ostringstream ss;
+    for (uint32 i=0; i<arrayLen; ++i)
+    {
+        for (uint8 j=0; j<2; ++j)
+        {
+            unsigned char nibble = 0x0F & (bytes[i]>>((1-j)*4));
+            char encodedNibble;
+            if(nibble < 0x0A)
+                encodedNibble = '0'+nibble;
+            else
+                encodedNibble = 'A'+nibble-0x0A;
+            ss << encodedNibble;
+        }
+    }
+    result = ss.str();
+}

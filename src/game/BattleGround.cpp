@@ -282,7 +282,11 @@ void BattleGround::Update(time_t diff)
             itr->second.LastOnlineTime += diff;
 
             if (plr)
+            {
                 itr->second.LastOnlineTime = 0;                 // update last online time
+                if (!plr->IsPvP())                              // force all players PvP on
+                    plr->UpdatePvP(true, true);
+            }
             else
                 if (itr->second.LastOnlineTime >= MAX_OFFLINE_TIME)
                     m_RemovedPlayers[itr->first] = 1;           // add to remove list (BG)
@@ -708,7 +712,11 @@ void BattleGround::EndBattleGround(uint32 winner)
                 SetArenaTeamRatingChangeForTeam(HORDE, winner_change);
                 SetArenaTeamRatingChangeForTeam(ALLIANCE, loser_change);
             }
-            sLog.outArena("Arena match Type: %u for Team1Id: %u - Team2Id: %u ended. WinnerTeamId: %u. RatingChange: %i.", m_ArenaType, m_ArenaTeamIds[BG_TEAM_ALLIANCE], m_ArenaTeamIds[BG_TEAM_HORDE], winner_arena_team->GetId(), winner_change);
+            sLog.outArena("Arena match Type: %u for Team1Id: %u - Team2Id: %u ended. WinnerTeamId: %u. Winner rating: %u, Loser rating: %u. RatingChange: %i.", m_ArenaType, m_ArenaTeamIds[BG_TEAM_ALLIANCE], m_ArenaTeamIds[BG_TEAM_HORDE], winner_arena_team->GetId(), winner_rating, loser_rating, winner_change);
+            if (sWorld.getConfig(CONFIG_ARENA_LOG_EXTENDED_INFO))
+                for (BattleGround::BattleGroundScoreMap::const_iterator itr = GetPlayerScoresBegin();itr !=GetPlayerScoresEnd(); ++itr)
+                    if (Player* player = objmgr.GetPlayer(itr->first))
+                        sLog.outArena("Statistics for %s (GUID: " UI64FMTD ", Team: %d, IP: %s): %u damage, %u healing, %u killing blows", player->GetName(), itr->first, player->GetArenaTeamId(m_ArenaType == 5 ? 2 : m_ArenaType == 3), player->GetSession()->GetRemoteAddress().c_str(), itr->second->DamageDone, itr->second->HealingDone, itr->second->KillingBlows);
         }
         else
         {
@@ -1140,6 +1148,8 @@ void BattleGround::AddPlayer(Player *plr)
     SendPacketToTeam(team, &data, plr, false);
 
     plr->RemoveSpellsCausingAura(SPELL_AURA_MOUNTED);
+    plr->CombatStop();
+    plr->getHostileRefManager().deleteReferences();
 
     // add arena specific auras
     if (isArena())

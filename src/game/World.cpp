@@ -50,7 +50,6 @@
 #include "AuctionHouseBot.h"
 #include "WaypointMovementGenerator.h"
 #include "VMapFactory.h"
-#include "GlobalEvents.h"
 #include "GameEventMgr.h"
 #include "PoolHandler.h"
 #include "Database/DatabaseImpl.h"
@@ -537,11 +536,6 @@ void World::LoadConfigSettings(bool reload)
         rate_values[RATE_DURABILITY_LOSS_BLOCK] = 0.0f;
     }
 
-    // AutoBroadcast
-    m_configs[CONFIG_AUTOBROADCAST] = sConfig.GetBoolDefault("AutoBroadcast.On", false);
-    m_configs[CONFIG_AUTOBROADCAST_CENTER] = sConfig.GetIntDefault("AutoBroadcast.Center", 0);
-    m_configs[CONFIG_AUTOBROADCAST_INTERVAL] = (sConfig.GetIntDefault("AutoBroadcast.Timer", 5)*MINUTE*1000);
-
     // Read other configuration items from the config file
 
     m_configs[CONFIG_COMPRESSION] = sConfig.GetIntDefault("Compression", 1);
@@ -955,7 +949,8 @@ void World::LoadConfigSettings(bool reload)
     m_configs[CONFIG_ARENA_RATING_DISCARD_TIMER]                = sConfig.GetIntDefault("Arena.RatingDiscardTimer", 10 * MINUTE * IN_MILLISECONDS);
     m_configs[CONFIG_ARENA_AUTO_DISTRIBUTE_POINTS]              = sConfig.GetBoolDefault("Arena.AutoDistributePoints", false);
     m_configs[CONFIG_ARENA_AUTO_DISTRIBUTE_INTERVAL_DAYS]       = sConfig.GetIntDefault("Arena.AutoDistributeInterval", 7);
-    m_configs[CONFIG_INSTANT_LOGOUT] = sConfig.GetIntDefault("InstantLogout", SEC_MODERATOR);
+    m_configs[CONFIG_ARENA_LOG_EXTENDED_INFO]                   = sConfig.GetBoolDefault("ArenaLogExtendedInfo", false);
+    m_configs[CONFIG_INSTANT_LOGOUT]                            = sConfig.GetIntDefault("InstantLogout", SEC_MODERATOR);
 
     m_VisibleUnitGreyDistance = sConfig.GetFloatDefault("Visibility.Distance.Grey.Unit", 1);
     if (m_VisibleUnitGreyDistance >  MAX_VISIBILITY_DISTANCE)
@@ -1096,6 +1091,9 @@ void World::LoadConfigSettings(bool reload)
     m_configs[CONFIG_NUMTHREADS] = sConfig.GetIntDefault("MapUpdate.Threads",1);
     m_configs[CONFIG_DUEL_MOD] = sConfig.GetBoolDefault("DuelMod.Enable", false);
     m_configs[CONFIG_DUEL_CD_RESET] = sConfig.GetBoolDefault("DuelMod.Cooldowns", false);
+    m_configs[CONFIG_AUTOBROADCAST_TIMER] = sConfig.GetIntDefault("AutoBroadcast.Timer", 60000);
+    m_configs[CONFIG_AUTOBROADCAST_ENABLED] = sConfig.GetIntDefault("AutoBroadcast.On", 0);
+    m_configs[CONFIG_AUTOBROADCAST_CENTER] = sConfig.GetIntDefault("AutoBroadcast.Center", 0);
 
     std::string forbiddenmaps = sConfig.GetStringDefault("ForbiddenMaps", "");
     char * forbiddenMaps = new char[forbiddenmaps.length() + 1];
@@ -1319,8 +1317,8 @@ void World::SetInitialWorldSettings()
     uint32 realm_zone = getConfig(CONFIG_REALM_ZONE);
     LoginDatabase.PExecute("UPDATE realmlist SET icon = %u, timezone = %u WHERE id = '%d'", server_type, realm_zone, realmID);
 
-    // Remove the bones after a restart
-    CharacterDatabase.Execute("DELETE FROM corpse WHERE corpse_type = '0'");
+    // Remove the bones (they should not exist in DB though) and old corpses after a restart
+    CharacterDatabase.PExecute("DELETE FROM corpse WHERE corpse_type = '0' OR time < (UNIX_TIMESTAMP()-'%u')", 3 * DAY);
 
     // Load the DBC files
     sLog.outString("Initialize data stores...");
@@ -1581,6 +1579,9 @@ void World::SetInitialWorldSettings()
     sLog.outString("Loading Autobroadcasts...");
     LoadAutobroadcasts();
 
+    sLog.outString("Loading Autobroadcasts...");
+    LoadAutobroadcasts();
+
     // Load and initialize scripts
     sLog.outString("Loading Scripts...");
     sLog.outString();
@@ -1623,7 +1624,8 @@ void World::SetInitialWorldSettings()
 
     WorldDatabase.PExecute("INSERT INTO uptime (startstring, starttime, uptime) VALUES('%s', " UI64FMTD ", 0)",
         isoDate, uint64(m_startTime));
-        
+
+    m_timers[WUPDATE_AUTOBROADCAST].SetInterval(m_configs[CONFIG_AUTOBROADCAST_TIMER]);
     m_timers[WUPDATE_OBJECTS].SetInterval(IN_MILLISECONDS/2);
     m_timers[WUPDATE_SESSIONS].SetInterval(0);
     m_timers[WUPDATE_WEATHERS].SetInterval(IN_MILLISECONDS);
@@ -1637,7 +1639,6 @@ void World::SetInitialWorldSettings()
 
     m_timers[WUPDATE_DELETECHARS].SetInterval(DAY*IN_MILLISECONDS); // check for chars to delete every day
 
-    m_timers[WUPDATE_AUTOBROADCAST].SetInterval(getConfig(CONFIG_AUTOBROADCAST_INTERVAL));
     //to set mailtimer to return mails every day between 4 and 5 am
     //mailtimer is increased when updating auctions
     //one second is 1000 -(tested on win system)
@@ -1786,6 +1787,7 @@ void World::LoadAutobroadcasts()
     {
         barGoLink bar(1);
         bar.step();
+
         sLog.outString();
         sLog.outString(">> Loaded 0 autobroadcasts definitions");
         return;
@@ -1793,17 +1795,20 @@ void World::LoadAutobroadcasts()
 
     barGoLink bar(result->GetRowCount());
     uint32 count = 0;
+
     do
     {
         bar.step();
         Field *fields = result->Fetch();
         std::string message = fields[0].GetCppString();
         m_Autobroadcasts.push_back(message);
-        count++;
-    } while (result->NextRow());
+        ++count;
+    }
+
+    while (result->NextRow());
 
     sLog.outString();
-    sLog.outString(">> Loaded %u autobroadcast definitions", count);
+    sLog.outString( ">> Loaded %u autobroadcasts definitions", count);
 }
 
 // Update the World !
@@ -1925,6 +1930,15 @@ void World::Update(time_t diff)
     // Update objects when the timer has passed (maps, transport, creatures,...)
     MapManager::Instance().Update(diff);                // As interval = 0
 
+    if (m_configs[CONFIG_AUTOBROADCAST_ENABLED])
+    {
+       if (m_timers[WUPDATE_AUTOBROADCAST].Passed())
+       {
+          m_timers[WUPDATE_AUTOBROADCAST].Reset();
+          SendAutoBroadcast();
+       }
+    }
+
     sBattleGroundMgr.Update(diff);
     RecordTimeDiff("UpdateBattleGroundMgr");
 
@@ -1946,8 +1960,7 @@ void World::Update(time_t diff)
     if (m_timers[WUPDATE_CORPSES].Passed())
     {
         m_timers[WUPDATE_CORPSES].Reset();
-
-        CorpsesErase();
+        ObjectAccessor::Instance().RemoveOldCorpses();
     }
 
     // Process Game events when necessary
@@ -1961,16 +1974,6 @@ void World::Update(time_t diff)
 
     // update the instance reset times
     sInstanceSaveManager.Update();
-
-    // send auto broadcast
-    if (sWorld.getConfig(CONFIG_AUTOBROADCAST))
-    {
-        if (m_timers[WUPDATE_AUTOBROADCAST].Passed())
-        {
-            m_timers[WUPDATE_AUTOBROADCAST].Reset();
-            SendAutoBroadcast();
-        }
-    }
 
     // And last, but not least handle the issued cli commands
     ProcessCliCommands();

@@ -3,7 +3,7 @@
 ###############################################
 
 [worldserver]
-ConfVersion=2011020301
+ConfVersion=2011091401
 
 # Note to devs, line breaks should be at column 80
 ###############################################################################
@@ -362,6 +362,11 @@ MapUpdate.Threads = 1
 #        Log file of arena fights and arena team creations
 #        Default: "" - do not create arena log file
 #
+#   ArenaLogExtendedInfo
+#        Extended Info Log file of arena fights and arena team creations
+#        Default: 0 - extended arena logs off
+#                 1 - extended arena logs on
+#
 #    LogColors
 #        Color for messages (format "normal basic detail debug")
 #        Default: "" - no colors
@@ -487,6 +492,7 @@ GmLogTimestamp = 0
 GmLogPerAccount = 0
 RaLogFile = "ra_commands.log"
 ArenaLogFile = ""
+ArenaLogExtendedInfo = 0
 LogColors = ""
 EnableLogDB = 0
 DBLogLevel = 2
@@ -1841,9 +1847,6 @@ AuctionHouseBot.DisableTGsAboveReqSkillRank = 0
 #    Ra.MinLevel
 #        Minimum level that's required to login,3 by default
 #
-#    Ra.Secure
-#        Kick client on wrong pass
-#
 #    SOAP.Enable
 #        Enable soap service
 #        Default: 0 - off
@@ -1864,7 +1867,6 @@ Ra.Enable = 0
 Ra.IP = 0.0.0.0
 Ra.Port = 3443
 Ra.MinLevel = 3
-Ra.Secure = 1
 
 SOAP.Enabled = 0
 SOAP.IP = 127.0.0.1
@@ -1925,15 +1927,6 @@ CharDelete.KeepDays = 30
 #    GuildMasterNPC.SellPriceInGold
 #        Amount of gold given to player when selling guild house.
 #        Default: 400 (Gold)
-#
-#   RenameNPC.Enable
-#       Enable the Rename NPC.
-#       Default: 1 - Enabled
-#                0 (Disabled)
-#
-#   RenameNPC.CostInGold
-#       Cost to rename character in gold.
-#       Default: 100
 #
 #    RentalMountNPC.SlowPrice
 #        Price in copper for regular mount.
@@ -2051,6 +2044,15 @@ CharDelete.KeepDays = 30
 #       Default: 0 (Disabled)
 #                1 - Enabled
 #
+#   RenameNPC.Enable
+#       Enable the Rename NPC.
+#       Default: 1 - Enabled
+#                0 (Disabled)
+#
+#   RenameNPC.CostInGold
+#       Cost to rename character in gold.
+#       Default: 100
+#
 ###############################################################################
 
 GuildMasterNPC.BuyEnabled = 1
@@ -2059,8 +2061,6 @@ GuildMasterNPC.BuyPriceInGold = 500
 GuildMasterNPC.SellEnabled = 1
 GuildMasterNPC.SellGossip = "Sell your GuildHouse for 400 Gold"
 GuildMasterNPC.SellPriceInGold = 400
-RenameNPC.Enable = 1
-RenameNPC.CostInGold = 100
 RentalMountNPC.SlowPrice = 100
 RentalMountNPC.FastPrice = 500
 PlayerStart.AllReputation = 0
@@ -2083,6 +2083,8 @@ MinRecordUpdateTimeDiff = 100
 PlayerStart.String = ""
 DuelMod.Enable = 0
 DuelMod.Cooldowns = 0
+RenameNPC.Enable = 1
+RenameNPC.CostInGold = 100
 
 ###############################################################################
 # AUTO BROADCAST
@@ -2099,13 +2101,13 @@ DuelMod.Cooldowns = 0
 #                 2 - both
 #
 #    AutoBroadcast.Timer
-#        Timer for auto broadcast (in minutes)
+#        Timer for auto broadcast (in milliseconds)
 #
 ###############################################################################
 
 AutoBroadcast.On = 0
 AutoBroadcast.Center = 0
-AutoBroadcast.Timer = 15
+AutoBroadcast.Timer = 60000
 
 ##############################################################################
 # OCChat IRC BOT Configuration
@@ -2225,6 +2227,7 @@ AutoBroadcast.Timer = 15
 #  (1)Display WoW Chan Join/Leaves In IRC
 #  (2)Display IRC Chan Join/Leaves/NickChanges In WoW
 #  (4)Display Unknown Command Message When Trigger Is Used And No Command Exists
+#
 #  (8)Announce Security Level > 0 As GM At Login
 #  (16)Announce GM In GM ON State AS GM At Login
 #  (32)Return Errors To Notice. (If disabled then default is Private Message)

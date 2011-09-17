@@ -692,7 +692,7 @@ bool ChatHandler::HandleReloadAutobroadcastCommand(const char*)
 {
     sLog.outString("Re-Loading Autobroadcast...");
     sWorld.LoadAutobroadcasts();
-    SendGlobalGMSysMessage("DB table `autobroadcast` reloaded.");
+    SendGlobalGMSysMessage("DB table autobroadcast reloaded.");
     return true;
 }
 
@@ -4501,7 +4501,7 @@ bool ChatHandler::HandleLevelUpCommand(const char *args)
     else
     {
         // update level and XP at level, all other will be updated at loading
-        CharacterDatabase.PExecute("UPDATE characters SET level = '%u', xp = 0 WHERE guid = '%u'", newlevel, chr->GetGUIDLow());
+        CharacterDatabase.PExecute("UPDATE characters SET level = '%u', xp = 0 WHERE guid = '%u'", newlevel, chr_guid);
     }
 
     if (m_session->GetPlayer() != chr)                       // including chr == NULL

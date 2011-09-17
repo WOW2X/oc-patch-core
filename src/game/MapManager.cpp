@@ -172,9 +172,9 @@ bool MapManager::CanPlayerEnter(uint32 mapid, Player* player)
 
     const char *mapName = entry->name[player->GetSession()->GetSessionDbcLocale()];
 
-    if (entry->map_type == MAP_INSTANCE || entry->map_type == MAP_RAID)
+    if (entry->IsDungeon())
     {
-        if (entry->map_type == MAP_RAID)
+        if (entry->IsRaid())
         {
             // GMs can avoid raid limitations
             if (!player->isGameMaster() && !sWorld.getConfig(CONFIG_INSTANCE_IGNORE_RAID))
@@ -239,16 +239,6 @@ bool MapManager::CanPlayerEnter(uint32 mapid, Player* player)
     }
     else
         return true;
-}
-
-void MapManager::RemoveBonesFromMap(uint32 mapid, uint64 guid, float x, float y)
-{
-    bool remove_result = _createBaseMap(mapid)->RemoveBones(guid, x, y);
-
-    if (!remove_result)
-    {
-        sLog.outDebug("Bones %u not found in world. Delete from DB also.", GUID_LOPART(guid));
-    }
 }
 
 void MapManager::Update(time_t diff)

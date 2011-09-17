@@ -654,6 +654,7 @@ bool IsPositiveEffect(uint32 spellId, uint32 effIndex)
         case 34700:                                         // Allergic Reaction
         case 31719:                                         // Suspension
         case 43501:                                         // Siphon Soul (Hexlord Spell)
+        case 30457:                                         // Complete vulnerability
             return false;
     }
 
@@ -793,7 +794,12 @@ bool IsPositiveEffect(uint32 spellId, uint32 effIndex)
                     {
                         case SPELLMOD_COST:                 // dependent from bas point sign (negative -> positive)
                             if (spellproto->EffectBasePoints[effIndex]+int32(spellproto->EffectBaseDice[effIndex]) > 0)
+                            {
+                                if (spellproto->Id == 12042)    // Arcane Power is a positive spell
+                                    return true;
+
                                 return false;
+                            }
                             break;
                         default:
                             break;
@@ -2481,8 +2487,22 @@ void SpellMgr::LoadSpellCustomAttr()
         case 24905: // Moonkin form -> elune's touch
             spellInfo->EffectImplicitTargetA[2] = TARGET_UNIT_CASTER;
             break;
+        case 7922:                        // Charge stun
+        case 25274:                       // Intercept stun
+        case 2094:                        // Blind
+            spellInfo->speed = 590.0f;    // Minor delay
+            break;
+        case 1833:                        // Cheap Shot
+            spellInfo->speed = 1230.0f;   // Tiny delay
+            break;
+        case 26679:                       // Deadly Throw
+            spellInfo->speed = 0;         // Instant
+            break;
         case 41013:     // Parasitic Shadowfiend Passive
             spellInfo->EffectApplyAuraName[0] = 4; // proc debuff, and summon infinite fiends
+            break;
+        case 1543: // Flare
+            spellInfo->speed = 0;
             break;
         case 27892:     // To Anchor 1
         case 27928:     // To Anchor 1
@@ -2494,6 +2514,10 @@ void SpellMgr::LoadSpellCustomAttr()
             break;
         case 34580:
             mSpellCustomAttr[i] |= SPELL_ATTR_CU_IGNORE_ARMOR;
+            break;
+        case 6774:
+            spellInfo->AttributesEx3 |= SPELL_ATTR_EX3_NO_INITIAL_AGGRO; // slice and dice no longer gives combat or remove stealth
+            spellInfo->AttributesEx |= SPELL_ATTR_EX_NOT_BREAK_STEALTH;
             break;
         default:
             break;

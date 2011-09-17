@@ -686,7 +686,7 @@ ChatCommand * ChatHandler::getCommandTable()
         { "flusharenapoints",SEC_ADMINISTRATOR, true,  &ChatHandler::HandleFlushArenaPointsCommand,    "", NULL },
         { "sendmessage",    SEC_ADMINISTRATOR,  true,  &ChatHandler::HandleSendMessageCommand,         "", NULL },
         { "playall",        SEC_ADMINISTRATOR,  false, &ChatHandler::HandlePlayAllCommand,             "", NULL },
-        { "ocrecon",        SEC_MODERATOR,      true, &ChatHandler::HandleIRCRelogCommand,             "", NULL },
+        { "ocrecon",        SEC_MODERATOR,      true,  &ChatHandler::HandleIRCRelogCommand,            "", NULL },
         { "repairitems",    SEC_GAMEMASTER,     false, &ChatHandler::HandleRepairitemsCommand,         "", NULL },
 
         //Allows your players to gamble for fun and prizes
@@ -913,7 +913,7 @@ bool ChatHandler::ExecuteCommandInTable(ChatCommand *table, const char* text, co
                     sLog.outCommand(m_session->GetAccountId(),"Command: %s [Player: %s (Account: %u) X: %f Y: %f Z: %f Map: %u Selected: %s]",
                         fullcmd.c_str(),p->GetName(),m_session->GetAccountId(),p->GetPositionX(),p->GetPositionY(),p->GetPositionZ(),p->GetMapId(),
                         sel_guid.GetString().c_str());
- 
+
                     if ((sIRC.logmask & 2) != 0)
                     {
                         std::string logchan = "#";
@@ -922,7 +922,6 @@ bool ChatHandler::ExecuteCommandInTable(ChatCommand *table, const char* text, co
                         ss << sIRC.iLog.GetLogDateTimeStr() << ": [ " << p->GetName() << "(" << m_session->GetSecurity() << ") ] Used Command: [ " << fullcmd<< " ] Target: [" << sel_guid.GetString().c_str() << "]";
                         sIRC.Send_IRC_Channel(logchan,ss.str().c_str(), true, "LOG");
                     }
-
                 }
             }
         }

@@ -489,7 +489,7 @@ void Pet::setDeathState(DeathState s)                       // overwrite virtual
 
             //lose happiness when died and not in BG/Arena
             MapEntry const* mapEntry = sMapStore.LookupEntry(GetMapId());
-            if (!mapEntry || (mapEntry->map_type != MAP_ARENA && mapEntry->map_type != MAP_BATTLEGROUND))
+            if (!mapEntry || !mapEntry->IsBattleGroundOrArena())
                 ModifyPower(POWER_HAPPINESS, -HAPPINESS_LEVEL_SIZE);
 
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED);
@@ -511,7 +511,7 @@ void Pet::Update(uint32 diff)
     {
         case CORPSE:
         {
-            if (getPetType() != HUNTER_PET || m_deathTimer <= diff)
+            if (getPetType() != HUNTER_PET || m_corpseRemoveTime <= time(NULL))
             {
                 Remove(PET_SAVE_NOT_IN_SLOT);               //hunters' pets never get removed because of death, NEVER!
                 return;
@@ -1900,7 +1900,7 @@ void Pet::CastPetAuras(bool current)
 
 void Pet::CastPetAura(PetAura const* aura)
 {
-    uint16 auraId = aura->GetAura(GetEntry());
+    uint32 auraId = aura->GetAura(GetEntry());
     if (!auraId)
         return;
 

@@ -4231,10 +4231,8 @@ void Player::CreateCorpse()
         }
     }
 
-    // we don't SaveToDB for players in battlegrounds so don't do it for corpses either
-    const MapEntry *entry = sMapStore.LookupEntry(corpse->GetMapId());
-    ASSERT(entry);
-    if (entry->map_type != MAP_BATTLEGROUND)
+    // we do not need to save corpses for BG/arenas
+    if (!GetMap()->IsBattleGroundOrArena())
         corpse->SaveToDB();
 
     // register for player, but not show
@@ -16735,7 +16733,7 @@ void Player::_SaveQuestStatus()
         switch (i->second.uState)
         {
             case QUEST_NEW:
-                CharacterDatabase.PExecute("REPLACE INTO character_queststatus (guid,quest,status,rewarded,explored,timer,mobcount1,mobcount2,mobcount3,mobcount4,itemcount1,itemcount2,itemcount3,itemcount4) "
+                CharacterDatabase.PExecute("INSERT INTO character_queststatus (guid,quest,status,rewarded,explored,timer,mobcount1,mobcount2,mobcount3,mobcount4,itemcount1,itemcount2,itemcount3,itemcount4) "
                     "VALUES ('%u', '%u', '%u', '%u', '%u', '" UI64FMTD "', '%u', '%u', '%u', '%u', '%u', '%u', '%u', '%u')",
                     GetGUIDLow(), i->first, i->second.m_status, i->second.m_rewarded, i->second.m_explored, uint64(i->second.m_timer / IN_MILLISECONDS + sWorld.GetGameTime()), i->second.m_creatureOrGOcount[0], i->second.m_creatureOrGOcount[1], i->second.m_creatureOrGOcount[2], i->second.m_creatureOrGOcount[3], i->second.m_itemcount[0], i->second.m_itemcount[1], i->second.m_itemcount[2], i->second.m_itemcount[3]);
                 break;
@@ -17046,7 +17044,7 @@ void Player::ResetInstances(uint8 method)
         if (method == INSTANCE_RESET_ALL)
         {
             // the "reset all instances" method can only reset normal maps
-            if (diff == DIFFICULTY_HEROIC || entry->map_type == MAP_RAID)
+            if (diff == DIFFICULTY_HEROIC || entry->IsRaid())
             {
                 ++itr;
                 continue;
@@ -18804,6 +18802,10 @@ bool Player::canSeeOrDetect(Unit const* u, bool detect, bool inVisibleList, bool
 {
     // Always can see self
     if (m_mover == u || this == u)
+        return true;
+
+    // Game masters should always see the players
+    if (isGameMaster())
         return true;
 
     // Arena visibility before arena start

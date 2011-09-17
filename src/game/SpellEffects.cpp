@@ -1897,7 +1897,14 @@ void Spell::EffectTriggerRitualOfSummoning(uint32 i)
 
     finish();
 
-    m_caster->CastSpell(unitTarget,spellInfo,false);
+    Spell *spell = new Spell(m_caster, spellInfo, true);
+    SpellCastTargets targets;
+    targets.setUnitTarget(unitTarget);
+    spell->prepare(&targets);
+
+    m_caster->SetCurrentCastedSpell(spell);
+    Spell* curr_spell = m_caster->GetCurrentSpell(spell->GetCurrentContainer());
+    spell->m_selfContainer = &curr_spell;
 }
 
 void Spell::EffectForceCast(uint32 i)
@@ -3319,6 +3326,8 @@ void Spell::EffectSummonType(uint32 i)
                     summon = m_caster->GetMap()->SummonCreature(entry, pos, properties, duration, m_originalCaster);
                     if (!summon || !summon->isTotem())
                         return;
+
+                    summon->SetUInt32Value(UNIT_CREATED_BY_SPELL, m_spellInfo->Id);
 
                     if (damage)                                             // if not spell info, DB values used
                     {
@@ -6446,7 +6455,28 @@ void Spell::GetSummonPosition(uint32 i, Position &pos, float radius, uint32 coun
     {
         // Summon 1 unit in dest location
         if (count == 0)
-            pos.Relocate(m_targets.m_dstPos);
+        {
+            bool found = false;
+            float cur_radius = 3.0f;
+
+            while (cur_radius > 0.0f && !found)
+            {
+                for (int i = 0; i < 10; i++)
+                {
+                    m_caster->GetRandomPoint(m_targets.m_dstPos, cur_radius, pos);
+                    if (m_caster->IsWithinLOS(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ()))
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                cur_radius -= 1.5f;
+            }
+
+            if (!found)
+                pos.Relocate(m_caster->GetPositionX(), m_caster->GetPositionY(), m_caster->GetPositionZ(), m_caster->GetOrientation());
+
+        }
         // Summon in random point all other units if location present
         else
         {

@@ -1,4 +1,4 @@
-# Copyright (C) 2008-2010 Trinity <http://www.trinitycore.org/>
+# Copyright (C) 2008-2011 TrinityCore <http://www.trinitycore.org/>
 #
 # This file is free software; as a special exception the author gives
 # unlimited permission to copy and/or distribute it, with or without
@@ -17,15 +17,15 @@ set(mpq_STAT_SRCS
 if( UNIX )
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/dep/include/zlib
-    ${CMAKE_SOURCE_DIR}/dep/include/bzip2
+    ${CMAKE_SOURCE_DIR}/dep/zlib
+    ${CMAKE_SOURCE_DIR}/dep/bzip2
   )
 elseif( WIN32 )
   include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/win
-    ${CMAKE_SOURCE_DIR}/dep/include/zlib
-    ${CMAKE_SOURCE_DIR}/dep/include/bzip2
+    ${CMAKE_SOURCE_DIR}/dep/zlib
+    ${CMAKE_SOURCE_DIR}/dep/bzip2
   )
 endif()
 
