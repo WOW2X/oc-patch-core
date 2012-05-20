@@ -32,6 +32,7 @@
 #include "NPCHandler.h"
 #include "Pet.h"
 #include "ObjectAccessor.h"
+#include "MapManager.h"
 
 void WorldSession::SendNameQueryOpcode(Player *p)
 {
@@ -240,6 +241,7 @@ void WorldSession::HandleGameObjectQueryOpcode(WorldPacket & recv_data)
         data << CastBarCaption;                             // 2.0.3, string. Text will appear in Cast Bar when using GO (ex: "Collecting")
         data << uint8(0);                                   // 2.0.3, string
         data.append(info->raw.data, 24);
+        data << float(info->size);                          // go size
         SendPacket(&data);
         sLog.outDebug("WORLD: Sent SMSG_GAMEOBJECT_QUERY_RESPONSE");
     }
